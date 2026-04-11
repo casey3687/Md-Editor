@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { createEditorStore } from "../../../src/store/editorStore";
+import type { PendingNavigation } from "../../../src/types/editor";
 
 describe("editor store", () => {
   it("marks the active document dirty when its content changes", () => {
@@ -79,6 +80,22 @@ describe("editor store", () => {
     store.getState().setPendingNavigation(pending);
 
     expect(store.getState().pendingNavigation).toEqual(pending);
+  });
+
+  it("copies pending navigation so later input mutation does not leak into state", () => {
+    const store = createEditorStore();
+    const pending: Extract<PendingNavigation, { type: "open-file" }> = {
+      type: "open-file",
+      path: "/workspace/notes/today.md",
+    };
+
+    store.getState().setPendingNavigation(pending);
+    pending.path = "/workspace/notes/changed.md";
+
+    expect(store.getState().pendingNavigation).toEqual({
+      type: "open-file",
+      path: "/workspace/notes/today.md",
+    });
   });
 
   it("copies the workspace tree so later nested mutations do not leak into state", () => {

@@ -66,7 +66,9 @@ export function createEditorStore() {
         };
       }),
     setPendingNavigation: (pendingNavigation) =>
-      set({ pendingNavigation }),
+      set({
+        pendingNavigation: pendingNavigation ? { ...pendingNavigation } : null,
+      }),
     clearError: () => set({ errorMessage: null }),
     setError: (errorMessage) => set({ errorMessage }),
   }));
