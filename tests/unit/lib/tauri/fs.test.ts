@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { isMarkdownFile } from "./fs";
+import { isMarkdownFile } from "../../../../src/lib/tauri/fs";
 
 describe("isMarkdownFile", () => {
   it("accepts .md paths and rejects other extensions", () => {
