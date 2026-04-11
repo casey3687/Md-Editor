@@ -13,7 +13,7 @@ vi.mock("@uiw/react-codemirror", () => ({
 }));
 
 describe("MarkdownEditor", () => {
-  it("passes content through and forwards editor changes", () => {
+  it("passes content through and forwards only the editor value", () => {
     const onChange = vi.fn();
 
     render(<MarkdownEditor content="# Hello" onChange={onChange} />);
@@ -24,6 +24,6 @@ describe("MarkdownEditor", () => {
     lastCodeMirrorProps?.onChange("# Updated", {});
 
     expect(onChange).toHaveBeenCalledTimes(1);
-    expect(onChange).toHaveBeenCalledWith("# Updated", {});
+    expect(onChange.mock.calls[0]).toEqual(["# Updated"]);
   });
 });

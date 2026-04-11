@@ -7,5 +7,5 @@ type MarkdownEditorProps = {
 };
 
 export function MarkdownEditor({ content, onChange }: MarkdownEditorProps) {
-  return <CodeMirror value={content} extensions={[markdown()]} onChange={onChange} />;
+  return <CodeMirror value={content} extensions={[markdown()]} onChange={(value) => onChange(value)} />;
 }
