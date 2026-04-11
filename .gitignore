@@ -6,7 +6,9 @@ coverage/
 src-tauri/target/
 src-tauri/gen/
 
+.worktrees
 .worktrees/
+worktrees
 worktrees/
 
 *.db
