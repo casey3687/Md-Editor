@@ -30,11 +30,23 @@ export function createEditorStore() {
     setWorkspace: (workspacePath, tree) => set({ workspacePath, tree }),
     setActiveDocument: (activeDocument) => set({ activeDocument }),
     updateContent: (content) =>
-      set((state) => ({
-        activeDocument: state.activeDocument
-          ? { ...state.activeDocument, content, isDirty: true }
-          : null,
-      })),
+      set((state) => {
+        if (!state.activeDocument) {
+          return state;
+        }
+
+        if (state.activeDocument.content === content) {
+          return state;
+        }
+
+        return {
+          activeDocument: {
+            ...state.activeDocument,
+            content,
+            isDirty: true,
+          },
+        };
+      }),
     setPendingNavigation: (pendingNavigation) =>
       set({ pendingNavigation }),
     clearError: () => set({ errorMessage: null }),
