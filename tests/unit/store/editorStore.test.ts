@@ -23,6 +23,27 @@ describe("editor store", () => {
     });
   });
 
+  it("copies the active document so later input mutation does not leak into state", () => {
+    const store = createEditorStore();
+    const document = {
+      path: "/workspace/notes/today.md",
+      name: "today.md",
+      content: "hello",
+      isDirty: false,
+    };
+
+    store.getState().setActiveDocument(document);
+    document.content = "mutated";
+    document.isDirty = true;
+
+    expect(store.getState().activeDocument).toEqual({
+      path: "/workspace/notes/today.md",
+      name: "today.md",
+      content: "hello",
+      isDirty: false,
+    });
+  });
+
   it("keeps the active document clean when the content is unchanged", () => {
     const store = createEditorStore();
     const document = {
@@ -38,7 +59,6 @@ describe("editor store", () => {
     store.getState().updateContent("hello");
 
     expect(store.getState()).toBe(before);
-    expect(store.getState().activeDocument).toBe(document);
     expect(store.getState().activeDocument).toEqual(document);
   });
 
@@ -59,5 +79,42 @@ describe("editor store", () => {
     store.getState().setPendingNavigation(pending);
 
     expect(store.getState().pendingNavigation).toEqual(pending);
+  });
+
+  it("copies the workspace tree so later nested mutations do not leak into state", () => {
+    const store = createEditorStore();
+    const tree = [
+      {
+        path: "/workspace/notes",
+        name: "notes",
+        kind: "directory" as const,
+        children: [
+          {
+            path: "/workspace/notes/today.md",
+            name: "today.md",
+            kind: "file" as const,
+          },
+        ],
+      },
+    ];
+
+    store.getState().setWorkspace("/workspace", tree);
+    tree[0].name = "mutated";
+    tree[0].children[0].name = "mutated.md";
+
+    expect(store.getState().tree).toEqual([
+      {
+        path: "/workspace/notes",
+        name: "notes",
+        kind: "directory",
+        children: [
+          {
+            path: "/workspace/notes/today.md",
+            name: "today.md",
+            kind: "file",
+          },
+        ],
+      },
+    ]);
   });
 });
