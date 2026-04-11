@@ -14,8 +14,8 @@ type AppShellProps = {
   onSave: () => void;
   onSaveAs: () => void;
   onPendingNavigationChange: (pendingNavigation: PendingNavigation) => void;
-  onSaveAndContinue: (pendingNavigation: Exclude<PendingNavigation, null>) => void;
-  onDiscardChanges: (pendingNavigation: Exclude<PendingNavigation, null>) => void;
+  onSaveAndContinue: () => void;
+  onDiscardChanges: () => void;
   onCancelNavigation: () => void;
 };
 
@@ -43,11 +43,6 @@ export function AppShell({
     action();
   };
 
-  const closePendingNavigation = () => {
-    onPendingNavigationChange(null);
-    onCancelNavigation();
-  };
-
   if (!workspacePath && !hasActiveDocument) {
     return <WelcomeView onOpenFolder={onOpenFolder} onOpenFile={onOpenFile} />;
   }
@@ -68,23 +63,9 @@ export function AppShell({
       <ConfirmDialog
         open={pendingNavigation !== null}
         pendingNavigation={pendingNavigation}
-        onSaveAndContinue={() => {
-          if (!pendingNavigation) {
-            return;
-          }
-
-          onSaveAndContinue(pendingNavigation);
-          onPendingNavigationChange(null);
-        }}
-        onDiscardChanges={() => {
-          if (!pendingNavigation) {
-            return;
-          }
-
-          onDiscardChanges(pendingNavigation);
-          onPendingNavigationChange(null);
-        }}
-        onCancel={closePendingNavigation}
+        onSaveAndContinue={onSaveAndContinue}
+        onDiscardChanges={onDiscardChanges}
+        onCancel={onCancelNavigation}
       />
     </main>
   );

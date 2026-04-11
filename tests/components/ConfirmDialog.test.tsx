@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import { ConfirmDialog } from "../../src/components/ConfirmDialog";
 
 describe("ConfirmDialog", () => {
-  it("calls the matching handler for each action", () => {
+  it("renders the pending navigation message and calls the matching handler for each action", () => {
     const onSaveAndContinue = vi.fn();
     const onDiscardChanges = vi.fn();
     const onCancel = vi.fn();
@@ -12,12 +12,16 @@ describe("ConfirmDialog", () => {
     render(
       <ConfirmDialog
         open
-        pendingNavigation={null}
+        pendingNavigation={{ type: "open-file", path: "/workspace/notes/today.md" }}
         onSaveAndContinue={onSaveAndContinue}
         onDiscardChanges={onDiscardChanges}
         onCancel={onCancel}
       />,
     );
+
+    expect(
+      screen.getByText("You have unsaved changes. Do you want to save before you open file?"),
+    ).toBeInTheDocument();
 
     screen.getByRole("button", { name: "Save and continue" }).click();
     screen.getByRole("button", { name: "Discard changes" }).click();

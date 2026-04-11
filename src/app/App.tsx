@@ -13,6 +13,7 @@ export function App() {
   const pendingNavigation = useStore(editorStore, (state) => state.pendingNavigation);
 
   const setPendingNavigation = editorStore.getState().setPendingNavigation;
+  const clearPendingNavigation = () => setPendingNavigation(null);
 
   return (
     <AppShell
@@ -26,9 +27,9 @@ export function App() {
       onSave={() => {}}
       onSaveAs={() => {}}
       onPendingNavigationChange={setPendingNavigation}
-      onSaveAndContinue={() => {}}
-      onDiscardChanges={() => {}}
-      onCancelNavigation={() => setPendingNavigation(null)}
+      onSaveAndContinue={clearPendingNavigation}
+      onDiscardChanges={clearPendingNavigation}
+      onCancelNavigation={clearPendingNavigation}
     />
   );
 }
