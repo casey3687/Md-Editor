@@ -64,6 +64,11 @@ pub fn scan_folder_entries(path: &Path) -> std::io::Result<Vec<DirectoryNode>> {
 
 fn validate_markdown_path(path: &Path) -> Result<(), String> {
     if is_markdown_file(path) {
+        if let Ok(metadata) = fs::symlink_metadata(path) {
+            if metadata.file_type().is_symlink() {
+                return Err("symlink paths are not supported".to_string());
+            }
+        }
         Ok(())
     } else {
         Err("only .md files are supported".to_string())
@@ -197,6 +202,61 @@ mod tests {
 
         assert!(!file_path.exists());
         fs::remove_dir_all(&root).ok();
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn read_markdown_file_rejects_markdown_symlink_paths() {
+        use std::os::windows::fs::symlink_file;
+
+        let root = unique_temp_dir();
+        let target_path = root.join("target.md");
+        let link_path = root.join("linked.md");
+
+        fs::create_dir_all(&root).expect("create temp directory");
+        fs::write(&target_path, "# Target").expect("write markdown target");
+
+        if let Err(err) = symlink_file(&target_path, &link_path) {
+            eprintln!("skipping symlink regression test because symlink creation failed: {err}");
+            fs::remove_dir_all(&root).ok();
+            return;
+        }
+
+        let error = crate::commands::fs::read_markdown_file(link_path.to_string_lossy().into_owned())
+            .expect_err("markdown symlink path should be rejected");
+
+        assert!(error.contains("symlink") || error.contains(".md"));
+
+        fs::remove_dir_all(&root).expect("clean up temp tree");
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn save_markdown_file_rejects_markdown_symlink_paths() {
+        use std::os::windows::fs::symlink_file;
+
+        let root = unique_temp_dir();
+        let target_path = root.join("target.md");
+        let link_path = root.join("linked.md");
+
+        fs::create_dir_all(&root).expect("create temp directory");
+        fs::write(&target_path, "# Target").expect("write markdown target");
+
+        if let Err(err) = symlink_file(&target_path, &link_path) {
+            eprintln!("skipping symlink regression test because symlink creation failed: {err}");
+            fs::remove_dir_all(&root).ok();
+            return;
+        }
+
+        let error = crate::commands::fs::save_markdown_file(
+            link_path.to_string_lossy().into_owned(),
+            "# New Content".to_string(),
+        )
+        .expect_err("markdown symlink path should be rejected");
+
+        assert!(error.contains("symlink") || error.contains(".md"));
+
+        fs::remove_dir_all(&root).expect("clean up temp tree");
     }
 
     #[cfg(windows)]
