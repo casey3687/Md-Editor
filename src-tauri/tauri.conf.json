@@ -1,0 +1,19 @@
+{
+  "productName": "Markdown Editor",
+  "version": "0.1.0",
+  "identifier": "com.casey3687.mdeditor",
+  "build": {
+    "beforeDevCommand": "",
+    "beforeBuildCommand": "",
+    "devUrl": "http://localhost:5173",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "Markdown Editor"
+      }
+    ]
+  }
+}
