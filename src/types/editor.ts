@@ -1,9 +1,15 @@
-export type DirectoryNode = {
-  path: string;
-  name: string;
-  kind: "directory" | "file";
-  children?: DirectoryNode[];
-};
+export type DirectoryNode =
+  | {
+      path: string;
+      name: string;
+      kind: "file";
+    }
+  | {
+      path: string;
+      name: string;
+      kind: "directory";
+      children: DirectoryNode[];
+    };
 
 export type EditorDocument = {
   path: string | null;
