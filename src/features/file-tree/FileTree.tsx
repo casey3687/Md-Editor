@@ -1,7 +1,8 @@
-import { FileTreeNodeView, type FileTreeNode } from "./FileTreeNode";
+import { FileTreeNode } from "./FileTreeNode";
+import type { DirectoryNode } from "../../types/editor";
 
 type FileTreeProps = {
-  nodes: FileTreeNode[];
+  nodes: DirectoryNode[];
   activePath: string | null;
   onSelectFile: (path: string) => void;
 };
@@ -11,7 +12,7 @@ export function FileTree({ nodes, activePath, onSelectFile }: FileTreeProps) {
     <nav aria-label="File tree">
       <ul>
         {nodes.map((node) => (
-          <FileTreeNodeView key={node.path} node={node} activePath={activePath} onSelectFile={onSelectFile} />
+          <FileTreeNode key={node.path} node={node} activePath={activePath} onSelectFile={onSelectFile} />
         ))}
       </ul>
     </nav>

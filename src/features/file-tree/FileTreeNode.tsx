@@ -1,17 +1,12 @@
-export type FileTreeNode = {
-  name: string;
-  path: string;
-  kind: "file" | "folder";
-  children?: FileTreeNode[];
-};
+import type { DirectoryNode } from "../../types/editor";
 
 type FileTreeNodeProps = {
-  node: FileTreeNode;
+  node: DirectoryNode;
   activePath: string | null;
   onSelectFile: (path: string) => void;
 };
 
-export function FileTreeNodeView({ node, activePath, onSelectFile }: FileTreeNodeProps) {
+export function FileTreeNode({ node, activePath, onSelectFile }: FileTreeNodeProps) {
   const isActive = node.kind === "file" && node.path === activePath;
 
   if (node.kind === "file") {
@@ -30,7 +25,7 @@ export function FileTreeNodeView({ node, activePath, onSelectFile }: FileTreeNod
       {node.children?.length ? (
         <ul>
           {node.children.map((child) => (
-            <FileTreeNodeView key={child.path} node={child} activePath={activePath} onSelectFile={onSelectFile} />
+            <FileTreeNode key={child.path} node={child} activePath={activePath} onSelectFile={onSelectFile} />
           ))}
         </ul>
       ) : null}

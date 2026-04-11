@@ -2,15 +2,15 @@ import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { FileTree } from "../../src/features/file-tree/FileTree";
-import type { FileTreeNode } from "../../src/features/file-tree/FileTreeNode";
+import type { DirectoryNode } from "../../src/types/editor";
 
 describe("FileTree", () => {
   it("renders file nodes and calls onSelectFile for file clicks", () => {
-    const nodes: FileTreeNode[] = [
+    const nodes: DirectoryNode[] = [
       {
         name: "notes",
         path: "/workspace/notes",
-        kind: "folder",
+        kind: "directory",
         children: [
           {
             name: "todo.md",
