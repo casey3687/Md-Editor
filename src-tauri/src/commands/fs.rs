@@ -10,12 +10,14 @@ pub fn scan_folder(path: String) -> Result<Vec<DirectoryNode>, String> {
 
 #[tauri::command]
 pub fn read_markdown_file(path: String) -> Result<String, String> {
+    validate_markdown_path(Path::new(&path))?;
     fs::read_to_string(path).map_err(|error| error.to_string())
 }
 
 #[tauri::command]
 pub fn save_markdown_file(path: String, content: String) -> Result<(), String> {
     let path = PathBuf::from(path);
+    validate_markdown_path(&path)?;
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent).map_err(|error| error.to_string())?;
     }
@@ -28,9 +30,14 @@ pub fn scan_folder_entries(path: &Path) -> std::io::Result<Vec<DirectoryNode>> {
     for entry in fs::read_dir(path)? {
         let entry = entry?;
         let entry_path = entry.path();
-        let metadata = entry.metadata()?;
+        let metadata = fs::symlink_metadata(&entry_path)?;
+        let file_type = metadata.file_type();
 
-        if metadata.is_dir() {
+        if file_type.is_symlink() {
+            continue;
+        }
+
+        if file_type.is_dir() {
             let children = scan_folder_entries(&entry_path)?;
             entries.push(DirectoryNode {
                 path: entry_path.to_string_lossy().into_owned(),
@@ -53,6 +60,14 @@ pub fn scan_folder_entries(path: &Path) -> std::io::Result<Vec<DirectoryNode>> {
 
     entries.sort_by(|left, right| left.name.cmp(&right.name).then_with(|| kind_rank(&left.kind).cmp(&kind_rank(&right.kind))));
     Ok(entries)
+}
+
+fn validate_markdown_path(path: &Path) -> Result<(), String> {
+    if is_markdown_file(path) {
+        Ok(())
+    } else {
+        Err("only .md files are supported".to_string())
+    }
 }
 
 fn is_markdown_file(path: &Path) -> bool {
@@ -123,7 +138,7 @@ mod tests {
         let root = unique_temp_dir();
         fs::create_dir_all(&root).expect("create temp directory");
 
-        let file_path = root.join("read-me.md");
+        let file_path = root.join("read-me.MD");
         fs::write(&file_path, "# Hello\n\nWorld").expect("write markdown file");
 
         let content = crate::commands::fs::read_markdown_file(file_path.to_string_lossy().into_owned())
@@ -137,7 +152,7 @@ mod tests {
     #[test]
     fn save_markdown_file_writes_content_to_disk() {
         let root = unique_temp_dir();
-        let file_path = root.join("nested").join("save-me.md");
+        let file_path = root.join("nested").join("save-me.MD");
 
         crate::commands::fs::save_markdown_file(
             file_path.to_string_lossy().into_owned(),
@@ -147,6 +162,70 @@ mod tests {
 
         let on_disk = fs::read_to_string(&file_path).expect("read saved file");
         assert_eq!(on_disk, "# Saved\n\nContent");
+
+        fs::remove_dir_all(&root).expect("clean up temp tree");
+    }
+
+    #[test]
+    fn read_markdown_file_rejects_non_markdown_paths() {
+        let root = unique_temp_dir();
+        fs::create_dir_all(&root).expect("create temp directory");
+
+        let file_path = root.join("notes.txt");
+        fs::write(&file_path, "plain text").expect("write text file");
+
+        let error = crate::commands::fs::read_markdown_file(file_path.to_string_lossy().into_owned())
+            .expect_err("non-markdown path should be rejected");
+
+        assert!(error.contains(".md"));
+
+        fs::remove_dir_all(&root).expect("clean up temp tree");
+    }
+
+    #[test]
+    fn save_markdown_file_rejects_non_markdown_paths() {
+        let root = unique_temp_dir();
+        let file_path = root.join("draft.TXT");
+
+        let error = crate::commands::fs::save_markdown_file(
+            file_path.to_string_lossy().into_owned(),
+            "# Nope".to_string(),
+        )
+        .expect_err("non-markdown path should be rejected");
+
+        assert!(error.contains(".md"));
+
+        assert!(!file_path.exists());
+        fs::remove_dir_all(&root).ok();
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn scan_folder_entries_skips_symlinked_directories() {
+        use std::os::windows::fs::symlink_dir;
+
+        let root = unique_temp_dir();
+        let real_dir = root.join("real");
+        let target_dir = root.join("target");
+        let link_dir = root.join("link");
+
+        fs::create_dir_all(&real_dir).expect("create real directory");
+        fs::create_dir_all(&target_dir).expect("create target directory");
+        fs::write(target_dir.join("inside.md"), "# Target").expect("write target markdown");
+        fs::write(real_dir.join("local.md"), "# Local").expect("write local markdown");
+
+        if let Err(err) = symlink_dir(&target_dir, &link_dir) {
+            eprintln!("skipping symlink test because symlink creation failed: {err}");
+            fs::remove_dir_all(&root).ok();
+            return;
+        }
+
+        let entries = scan_folder_entries(&root).expect("scan folder");
+        let link_entry = entries.iter().find(|entry| entry.name == "link");
+
+        assert!(link_entry.is_none(), "symlinked directory should be skipped");
+        assert!(entries.iter().any(|entry| entry.name == "real"));
+        assert!(entries.iter().any(|entry| entry.name == "target"));
 
         fs::remove_dir_all(&root).expect("clean up temp tree");
     }
