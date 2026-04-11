@@ -1,5 +1,15 @@
-import { WelcomeView } from "./WelcomeView";
+import { AppShell } from "./AppShell";
 
 export function App() {
-  return <WelcomeView onOpenFolder={() => {}} onOpenFile={() => {}} />;
+  return (
+    <AppShell
+      workspacePath={null}
+      hasActiveDocument={false}
+      onNewFile={() => {}}
+      onOpenFile={() => {}}
+      onOpenFolder={() => {}}
+      onSave={() => {}}
+      onSaveAs={() => {}}
+    />
+  );
 }

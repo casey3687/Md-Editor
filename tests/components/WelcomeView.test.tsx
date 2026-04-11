@@ -1,13 +1,19 @@
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { WelcomeView } from "../../src/app/WelcomeView";
 
 describe("WelcomeView", () => {
-  it("renders open folder and open file actions", () => {
-    render(<WelcomeView onOpenFolder={() => {}} onOpenFile={() => {}} />);
+  it("calls the matching handler for each welcome action", () => {
+    const onOpenFolder = vi.fn();
+    const onOpenFile = vi.fn();
 
-    expect(screen.getByRole("button", { name: "Open Folder" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Open File" })).toBeInTheDocument();
+    render(<WelcomeView onOpenFolder={onOpenFolder} onOpenFile={onOpenFile} />);
+
+    screen.getByRole("button", { name: "Open Folder" }).click();
+    screen.getByRole("button", { name: "Open File" }).click();
+
+    expect(onOpenFolder).toHaveBeenCalledTimes(1);
+    expect(onOpenFile).toHaveBeenCalledTimes(1);
   });
 });
