@@ -1,0 +1,14 @@
+node_modules/
+dist/
+.vite/
+coverage/
+
+src-tauri/target/
+src-tauri/gen/
+
+.worktrees/
+worktrees/
+
+*.db
+*.sqlite
+*.sqlite3
