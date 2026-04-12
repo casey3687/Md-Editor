@@ -1,0 +1,68 @@
+.surface {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  min-height: 100%;
+  font-size: 1rem;
+  line-height: 1.78;
+}
+
+.warningMessage {
+  margin: 0;
+  border: 1px solid #f59e0b;
+  border-radius: 0.875rem;
+  background: #fffbeb;
+  color: #92400e;
+  padding: 0.75rem 0.875rem;
+}
+
+.editableHeading,
+.editableParagraph {
+  margin: 0;
+}
+
+.editableHeading {
+  color: #0f172a;
+  line-height: 1.2;
+}
+
+.editableParagraph {
+  color: #1e293b;
+  line-height: 1.8;
+}
+
+.editableText {
+  display: inline-block;
+  min-width: 1ch;
+  outline: none;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 1rem;
+  line-height: inherit;
+}
+
+.editableText:focus {
+  border-radius: 0.25rem;
+  outline: 2px solid rgba(37, 99, 235, 0.4);
+  outline-offset: 2px;
+  box-shadow: none;
+}
+
+@media (forced-colors: active) {
+  .editableText:focus {
+    outline: 2px solid Highlight;
+  }
+}
+
+.editableText:empty::before {
+  content: attr(data-placeholder);
+  color: #94a3b8;
+}
+
+.readOnlyBlock {
+  min-width: 0;
+}
+
+.emptyParagraph {
+  margin: 0;
+}

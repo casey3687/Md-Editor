@@ -1,3 +1,5 @@
+import styles from "./Toolbar.module.css";
+
 type ToolbarProps = {
   disableSave: boolean;
   onNewFile: () => void;
@@ -16,20 +18,20 @@ export function Toolbar({
   onSaveAs,
 }: ToolbarProps) {
   return (
-    <nav aria-label="Editor toolbar">
-      <button type="button" onClick={onNewFile}>
+    <nav aria-label="Editor toolbar" className={styles.toolbar}>
+      <button type="button" onClick={onNewFile} className={styles.button}>
         New
       </button>
-      <button type="button" onClick={onOpenFile}>
+      <button type="button" onClick={onOpenFile} className={styles.button}>
         Open File
       </button>
-      <button type="button" onClick={onOpenFolder}>
+      <button type="button" onClick={onOpenFolder} className={styles.button}>
         Open Folder
       </button>
-      <button type="button" onClick={onSave} disabled={disableSave}>
+      <button type="button" onClick={onSave} disabled={disableSave} className={styles.button}>
         Save
       </button>
-      <button type="button" onClick={onSaveAs}>
+      <button type="button" onClick={onSaveAs} className={styles.button}>
         Save As
       </button>
     </nav>

@@ -1,29 +1,40 @@
 import { createStore } from "zustand/vanilla";
 
 import type {
-  DirectoryNode,
   EditorDocument,
+  MarkdownFileEntry,
+  OutlineItem,
   PendingNavigation,
+  SidebarTab,
 } from "../types/editor";
 
-function cloneDirectoryNode(node: DirectoryNode): DirectoryNode {
-  if (node.kind === "file") {
-    return { ...node };
-  }
+function cloneFileEntry(entry: MarkdownFileEntry): MarkdownFileEntry {
+  return { ...entry };
+}
 
+function cloneOutlineItem(item: OutlineItem): OutlineItem {
+  return { ...item };
+}
+
+function cloneEditorDocument(document: EditorDocument): EditorDocument {
   return {
-    ...node,
-    children: node.children.map(cloneDirectoryNode),
+    ...document,
+    outline: document.outline.map(cloneOutlineItem),
   };
 }
 
 type EditorState = {
   workspacePath: string | null;
-  tree: DirectoryNode[];
+  fileEntries: MarkdownFileEntry[];
+  sidebarTab: SidebarTab;
   activeDocument: EditorDocument | null;
   pendingNavigation: PendingNavigation;
   errorMessage: string | null;
-  setWorkspace: (path: string | null, tree: DirectoryNode[]) => void;
+  setFileEntries: (entries: MarkdownFileEntry[]) => void;
+  setSidebarTab: (tab: SidebarTab) => void;
+  toggleEditorMode: () => void;
+  setOutline: (outline: OutlineItem[]) => void;
+  setActiveOutline: (id: string | null) => void;
   setActiveDocument: (document: EditorDocument | null) => void;
   updateContent: (content: string) => void;
   setPendingNavigation: (pending: PendingNavigation) => void;
@@ -35,18 +46,77 @@ type EditorState = {
 export function createEditorStore() {
   return createStore<EditorState>((set) => ({
     workspacePath: null,
-    tree: [],
+    fileEntries: [],
+    sidebarTab: "files",
     activeDocument: null,
     pendingNavigation: null,
     errorMessage: null,
-    setWorkspace: (workspacePath, tree) =>
+    setFileEntries: (fileEntries) =>
       set({
-        workspacePath,
-        tree: tree.map(cloneDirectoryNode),
+        fileEntries: fileEntries.map(cloneFileEntry),
+      }),
+    setSidebarTab: (sidebarTab) => set({ sidebarTab }),
+    toggleEditorMode: () =>
+      set((state) => {
+        if (!state.activeDocument) {
+          return state;
+        }
+
+        return {
+          activeDocument: {
+            ...state.activeDocument,
+            mode: state.activeDocument.mode === "preview-edit" ? "source" : "preview-edit",
+          },
+        };
+      }),
+    setOutline: (outline) =>
+      set((state) => {
+        if (!state.activeDocument) {
+          return state;
+        }
+
+        const activeOutlineTargets = new Set<string>();
+        state.activeDocument.outline.forEach((item) => {
+          if (item.isActive) {
+            activeOutlineTargets.add(item.id);
+            activeOutlineTargets.add(item.anchor);
+          }
+        });
+
+        return {
+          activeDocument: {
+            ...state.activeDocument,
+            outline: outline.map((item) => {
+              const nextOutlineItem = cloneOutlineItem(item);
+
+              if (activeOutlineTargets.has(nextOutlineItem.id) || activeOutlineTargets.has(nextOutlineItem.anchor)) {
+                nextOutlineItem.isActive = true;
+              }
+
+              return nextOutlineItem;
+            }),
+          },
+        };
+      }),
+    setActiveOutline: (id) =>
+      set((state) => {
+        if (!state.activeDocument) {
+          return state;
+        }
+
+        return {
+          activeDocument: {
+            ...state.activeDocument,
+            outline: state.activeDocument.outline.map((item) => ({
+              ...item,
+              isActive: id !== null && item.id === id,
+            })),
+          },
+        };
       }),
     setActiveDocument: (activeDocument) =>
       set({
-        activeDocument: activeDocument ? { ...activeDocument } : null,
+        activeDocument: activeDocument ? cloneEditorDocument(activeDocument) : null,
       }),
     updateContent: (content) =>
       set((state) => {

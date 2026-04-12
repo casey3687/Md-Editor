@@ -1,12 +1,14 @@
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::time::UNIX_EPOCH;
 
-use crate::models::{DirectoryNode, DirectoryNodeKind};
+use crate::models::MarkdownFileEntry;
 
 #[tauri::command]
-pub fn scan_folder(path: String) -> Result<Vec<DirectoryNode>, String> {
-    validate_directory_path(Path::new(&path))?;
-    scan_folder_entries(Path::new(&path)).map_err(|error| error.to_string())
+pub fn scan_folder(path: String) -> Result<Vec<MarkdownFileEntry>, String> {
+    let path = Path::new(&path);
+    validate_directory_path(path)?;
+    scan_folder_entries(path).map_err(|error| error.to_string())
 }
 
 #[tauri::command]
@@ -25,10 +27,23 @@ pub fn save_markdown_file(path: String, content: String) -> Result<(), String> {
     fs::write(path, content).map_err(|error| error.to_string())
 }
 
-pub fn scan_folder_entries(path: &Path) -> std::io::Result<Vec<DirectoryNode>> {
+pub fn scan_folder_entries(path: &Path) -> std::io::Result<Vec<MarkdownFileEntry>> {
     let mut entries = Vec::new();
+    scan_folder_entries_inner(path, path, &mut entries)?;
+    entries.sort_by(|left, right| {
+        left.relative_path
+            .cmp(&right.relative_path)
+            .then_with(|| left.name.cmp(&right.name))
+    });
+    Ok(entries)
+}
 
-    for entry in fs::read_dir(path)? {
+fn scan_folder_entries_inner(
+    root_path: &Path,
+    current_path: &Path,
+    entries: &mut Vec<MarkdownFileEntry>,
+) -> std::io::Result<()> {
+    for entry in fs::read_dir(current_path)? {
         let entry = entry?;
         let entry_path = entry.path();
         let metadata = fs::symlink_metadata(&entry_path)?;
@@ -39,28 +54,44 @@ pub fn scan_folder_entries(path: &Path) -> std::io::Result<Vec<DirectoryNode>> {
         }
 
         if file_type.is_dir() {
-            let children = scan_folder_entries(&entry_path)?;
-            entries.push(DirectoryNode {
-                path: entry_path.to_string_lossy().into_owned(),
-                name: entry.file_name().to_string_lossy().into_owned(),
-                kind: DirectoryNodeKind::Directory,
-                children: Some(children),
-            });
+            scan_folder_entries_inner(root_path, &entry_path, entries)?;
             continue;
         }
 
         if is_markdown_file(&entry_path) {
-            entries.push(DirectoryNode {
+            let relative_path = entry_path
+                .strip_prefix(root_path)
+                .unwrap_or(&entry_path)
+                .to_string_lossy()
+                .into_owned();
+            let normalized_relative_path = normalize_separators(&relative_path);
+            let directory_label = directory_label_from_relative_path(&normalized_relative_path);
+            let excerpt = extract_excerpt(&entry_path);
+            let modified_at = metadata
+                .modified()
+                .ok()
+                .and_then(|modified| modified.duration_since(UNIX_EPOCH).ok())
+                .map(|duration| {
+                    let millis = duration.as_millis();
+                    if millis > i64::MAX as u128 {
+                        i64::MAX
+                    } else {
+                        millis as i64
+                    }
+                });
+
+            entries.push(MarkdownFileEntry {
                 path: entry_path.to_string_lossy().into_owned(),
+                relative_path: normalized_relative_path,
                 name: entry.file_name().to_string_lossy().into_owned(),
-                kind: DirectoryNodeKind::File,
-                children: None,
+                directory_label,
+                excerpt,
+                modified_at,
             });
         }
     }
 
-    entries.sort_by(|left, right| left.name.cmp(&right.name).then_with(|| kind_rank(&left.kind).cmp(&kind_rank(&right.kind))));
-    Ok(entries)
+    Ok(())
 }
 
 fn validate_markdown_path(path: &Path) -> Result<(), String> {
@@ -92,11 +123,38 @@ fn is_markdown_file(path: &Path) -> bool {
         .is_some_and(|extension| extension.eq_ignore_ascii_case("md"))
 }
 
-fn kind_rank(kind: &DirectoryNodeKind) -> u8 {
-    match kind {
-        DirectoryNodeKind::Directory => 0,
-        DirectoryNodeKind::File => 1,
+fn normalize_separators(path: &str) -> String {
+    path.replace('\\', "/")
+}
+
+fn directory_label_from_relative_path(relative_path: &str) -> String {
+    let parent = Path::new(relative_path).parent();
+    match parent {
+        Some(parent) if !parent.as_os_str().is_empty() => {
+            normalize_separators(parent.to_string_lossy().as_ref())
+        }
+        _ => ".".to_string(),
     }
+}
+
+fn extract_excerpt(path: &Path) -> Option<String> {
+    let content = fs::read_to_string(path).ok()?;
+    content
+        .lines()
+        .map(str::trim)
+        .find(|line| !line.is_empty())
+        .map(truncate_excerpt)
+}
+
+fn truncate_excerpt(line: &str) -> String {
+    const MAX_EXCERPT_CHARS: usize = 180;
+    if line.chars().count() <= MAX_EXCERPT_CHARS {
+        return line.to_string();
+    }
+
+    let mut truncated = line.chars().take(MAX_EXCERPT_CHARS).collect::<String>();
+    truncated.push_str("...");
+    truncated
 }
 
 #[cfg(test)]
@@ -118,33 +176,58 @@ mod tests {
     }
 
     #[test]
-    fn scan_folder_entries_recursively_returns_directories_and_markdown_files_only() {
+    fn scan_folder_entries_recursively_returns_flat_markdown_entries_with_relative_metadata() {
         let root = unique_temp_dir();
         let nested = root.join("folder").join("nested");
 
         fs::create_dir_all(&nested).expect("create nested directory");
         fs::write(root.join("notes.md"), "# Notes").expect("write markdown file");
         fs::write(root.join("notes.txt"), "ignore").expect("write text file");
-        fs::write(root.join("folder").join("draft.md"), "# Draft").expect("write nested markdown file");
-        fs::write(root.join("folder").join("image.png"), "ignore").expect("write nested binary placeholder");
+        fs::write(root.join("folder").join("draft.md"), "# Draft")
+            .expect("write nested markdown file");
+        fs::write(root.join("folder").join("image.png"), "ignore")
+            .expect("write nested binary placeholder");
         fs::write(nested.join("deep.md"), "# Deep").expect("write deep markdown file");
 
         let entries = scan_folder_entries(&root).expect("scan folder");
 
-        assert_eq!(entries.len(), 2);
-        assert_eq!(entries[0].name, "folder");
-        assert!(matches!(entries[0].kind, crate::models::DirectoryNodeKind::Directory));
-        let folder_children = entries[0].children.as_ref().expect("folder children");
-        assert_eq!(folder_children.len(), 2);
-        assert_eq!(folder_children[0].name, "draft.md");
-        assert!(matches!(folder_children[0].kind, crate::models::DirectoryNodeKind::File));
-        assert_eq!(folder_children[1].name, "nested");
-        assert!(matches!(folder_children[1].kind, crate::models::DirectoryNodeKind::Directory));
-        let nested_children = folder_children[1].children.as_ref().expect("nested children");
-        assert_eq!(nested_children.len(), 1);
-        assert_eq!(nested_children[0].name, "deep.md");
-        assert_eq!(entries[1].name, "notes.md");
-        assert!(matches!(entries[1].kind, crate::models::DirectoryNodeKind::File));
+        assert_eq!(entries.len(), 3);
+        assert_eq!(
+            entries
+                .iter()
+                .map(|entry| entry.relative_path.as_str())
+                .collect::<Vec<_>>(),
+            vec!["folder/draft.md", "folder/nested/deep.md", "notes.md"]
+        );
+
+        assert_eq!(entries[0].name, "draft.md");
+        assert_eq!(entries[0].directory_label, "folder");
+        assert_eq!(entries[1].name, "deep.md");
+        assert_eq!(entries[1].directory_label, "folder/nested");
+        assert_eq!(entries[2].name, "notes.md");
+        assert_eq!(entries[2].directory_label, ".");
+
+        assert_eq!(entries[0].excerpt.as_deref(), Some("# Draft"));
+        assert_eq!(entries[1].excerpt.as_deref(), Some("# Deep"));
+        assert_eq!(entries[2].excerpt.as_deref(), Some("# Notes"));
+
+        assert!(entries.iter().all(|entry| entry.modified_at.is_some()));
+
+        fs::remove_dir_all(&root).expect("clean up temp tree");
+    }
+
+    #[test]
+    fn scan_folder_entries_extracts_excerpt_from_first_non_empty_line() {
+        let root = unique_temp_dir();
+        let file_path = root.join("notes.md");
+
+        fs::create_dir_all(&root).expect("create temp directory");
+        fs::write(&file_path, "\n\n   \nFirst useful line\nSecond line").expect("write markdown file");
+
+        let entries = scan_folder_entries(&root).expect("scan folder");
+
+        assert_eq!(entries.len(), 1);
+        assert_eq!(entries[0].excerpt.as_deref(), Some("First useful line"));
 
         fs::remove_dir_all(&root).expect("clean up temp tree");
     }
@@ -174,7 +257,7 @@ mod tests {
             file_path.to_string_lossy().into_owned(),
             "# Saved\n\nContent".to_string(),
         )
-            .expect("save markdown file");
+        .expect("save markdown file");
 
         let on_disk = fs::read_to_string(&file_path).expect("read saved file");
         assert_eq!(on_disk, "# Saved\n\nContent");
@@ -229,7 +312,9 @@ mod tests {
         fs::write(real_dir.join("note.md"), "# Note").expect("write markdown target");
 
         if let Err(err) = symlink_dir(&real_dir, &link_dir) {
-            eprintln!("skipping parent symlink regression test because symlink creation failed: {err}");
+            eprintln!(
+                "skipping parent symlink regression test because symlink creation failed: {err}"
+            );
             fs::remove_dir_all(&root).ok();
             return;
         }
@@ -255,7 +340,9 @@ mod tests {
         fs::create_dir_all(&real_dir).expect("create real directory");
 
         if let Err(err) = symlink_dir(&real_dir, &link_dir) {
-            eprintln!("skipping parent symlink regression test because symlink creation failed: {err}");
+            eprintln!(
+                "skipping parent symlink regression test because symlink creation failed: {err}"
+            );
             fs::remove_dir_all(&root).ok();
             return;
         }
@@ -375,11 +462,13 @@ mod tests {
         }
 
         let entries = scan_folder_entries(&root).expect("scan folder");
-        let link_entry = entries.iter().find(|entry| entry.name == "link");
 
-        assert!(link_entry.is_none(), "symlinked directory should be skipped");
-        assert!(entries.iter().any(|entry| entry.name == "real"));
-        assert!(entries.iter().any(|entry| entry.name == "target"));
+        assert_eq!(entries.len(), 2);
+        assert!(entries
+            .iter()
+            .all(|entry| !entry.path.contains("\\link\\") && !entry.path.contains("/link/")));
+        assert!(entries.iter().any(|entry| entry.name == "local.md"));
+        assert!(entries.iter().any(|entry| entry.name == "inside.md"));
 
         fs::remove_dir_all(&root).expect("clean up temp tree");
     }

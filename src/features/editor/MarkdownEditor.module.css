@@ -1,0 +1,74 @@
+.editor {
+  flex: 1;
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--surface-border);
+  border-radius: 1rem;
+  background: var(--surface-strong);
+  overflow: hidden;
+}
+
+.editor :global(.cm-editor) {
+  height: 100%;
+  min-height: 100%;
+  font-family:
+    "JetBrains Mono", "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  font-size: var(--editor-font-size);
+  line-height: var(--editor-line-height);
+  color: var(--text-main);
+  background: transparent;
+}
+
+.editor :global(.cm-scroller) {
+  height: 100%;
+  overflow: auto;
+  padding: 1rem 1rem 1.25rem;
+}
+
+.editor :global(.cm-content),
+.editor :global(.cm-gutter),
+.editor :global(.cm-gutters) {
+  min-height: 100%;
+}
+
+.editor :global(.cm-content) {
+  caret-color: var(--accent);
+}
+
+.editor :global(.cm-gutters) {
+  border-right-color: rgba(148, 163, 184, 0.18);
+  background: var(--surface-muted);
+  color: var(--text-muted);
+}
+
+.editor :global(.cm-activeLine),
+.editor :global(.cm-activeLineGutter) {
+  background: rgba(29, 78, 216, 0.05);
+}
+
+.editor :global(.cm-focused) {
+  outline: none;
+}
+
+.editor:focus-within {
+  outline: 2px solid rgba(29, 78, 216, 0.34);
+  outline-offset: 2px;
+  border-radius: 1rem;
+}
+
+@media (forced-colors: active) {
+  .editor:focus-within {
+    outline: 2px solid Highlight;
+  }
+}
+
+.editor :global(.cm-cursor) {
+  border-left-color: var(--accent);
+}
+
+@media (max-width: 640px) {
+  .editor :global(.cm-scroller) {
+    padding: 0.85rem 0.85rem 1rem;
+  }
+}

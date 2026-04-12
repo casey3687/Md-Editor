@@ -1,0 +1,104 @@
+.shell {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  height: 100vh;
+  padding: 1rem;
+  gap: 1rem;
+}
+
+.workspaceShell {
+  display: grid;
+  grid-template-columns: minmax(17rem, 19rem) minmax(0, 1fr);
+  gap: 1rem;
+  flex: 1;
+  min-height: 0;
+  align-items: stretch;
+}
+
+.editorPanel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.875rem;
+  min-width: 0;
+  min-height: 0;
+  padding: 1rem;
+  border: 1px solid var(--surface-border);
+  border-radius: 1.125rem;
+  background: var(--surface);
+  box-shadow: var(--surface-shadow);
+  backdrop-filter: blur(14px);
+}
+
+.editorHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.editorModeButton {
+  align-self: flex-start;
+  border: 1px solid var(--surface-border);
+  border-radius: 999px;
+  background: var(--surface-strong);
+  color: var(--text-main);
+  padding: 0.55rem 0.95rem;
+  box-shadow: 0 1px 0 rgba(15, 23, 42, 0.04);
+  cursor: pointer;
+}
+
+.editorModeButton:hover {
+  border-color: rgba(29, 78, 216, 0.32);
+  color: var(--accent);
+}
+
+.editorSurface {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .editorPanel,
+  .errorBanner,
+  .editorModeButton {
+    transition:
+      border-color 140ms ease,
+      box-shadow 140ms ease,
+      color 140ms ease,
+      background-color 140ms ease;
+  }
+}
+
+.errorBanner {
+  margin: 0;
+  border: 1px solid rgba(220, 38, 38, 0.2);
+  border-radius: 1rem;
+  background: rgba(254, 242, 242, 0.92);
+  color: #991b1b;
+  padding: 0.9rem 1rem;
+}
+
+@media (max-width: 980px) {
+  .workspaceShell {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 720px) {
+  .shell {
+    padding: 0.75rem;
+    gap: 0.75rem;
+  }
+
+  .workspaceShell {
+    min-height: 0;
+  }
+
+  .editorPanel {
+    padding: 0.85rem;
+  }
+}

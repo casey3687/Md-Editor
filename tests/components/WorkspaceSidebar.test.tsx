@@ -1,0 +1,141 @@
+import { fireEvent, render, screen } from "@testing-library/react";
+import { useState } from "react";
+import { describe, expect, it, vi } from "vitest";
+
+import { WorkspaceSidebar } from "../../src/features/workspace/WorkspaceSidebar";
+import type { OutlineItem, SidebarTab } from "../../src/types/editor";
+
+describe("WorkspaceSidebar", () => {
+  it("renders file cards with relative directory labels and active state", () => {
+    render(
+      <WorkspaceSidebar
+        workspacePath="docs"
+        fileEntries={[
+          {
+            path: "docs/reports/today.md",
+            relativePath: "reports/today.md",
+            name: "today.md",
+            directoryLabel: "reports",
+            excerpt: null,
+            modifiedAt: null,
+          },
+          {
+            path: "docs/notes.md",
+            relativePath: "notes.md",
+            name: "notes.md",
+            directoryLabel: ".",
+            excerpt: null,
+            modifiedAt: null,
+          },
+        ]}
+        sidebarTab="files"
+        activePath="docs/reports/today.md"
+        outline={[]}
+        onSidebarTabChange={vi.fn()}
+        onSelectFile={vi.fn()}
+        onSelectOutline={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole("tabpanel", { name: "Files" })).toBeInTheDocument();
+    expect(screen.getByText("reports")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /today\.md/i })).toHaveAttribute("aria-current", "page");
+    expect(screen.getByRole("button", { name: /notes\.md/i })).not.toHaveAttribute("aria-current");
+  });
+
+  it("renders outline headings in the outline tab and emits selection", () => {
+    const onSelectOutline = vi.fn();
+    const outline: OutlineItem[] = [
+      { id: "intro", text: "Introduction", level: 1, line: 1, anchor: "introduction", isActive: false },
+      { id: "usage", text: "Usage", level: 2, line: 8, anchor: "usage", isActive: true },
+    ];
+
+    render(
+      <WorkspaceSidebar
+        workspacePath="docs"
+        fileEntries={[]}
+        sidebarTab="outline"
+        activePath={null}
+        outline={outline}
+        onSidebarTabChange={vi.fn()}
+        onSelectFile={vi.fn()}
+        onSelectOutline={onSelectOutline}
+      />,
+    );
+
+    expect(screen.getByRole("tabpanel", { name: "Outline" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Introduction" }));
+
+    expect(screen.getByRole("button", { name: "Usage" })).toHaveAttribute("aria-current", "location");
+    expect(screen.getByRole("button", { name: "Usage" })).toHaveStyle("padding-inline-start: calc(0.875rem + 0.75rem)");
+    expect(onSelectOutline).toHaveBeenCalledTimes(1);
+    expect(onSelectOutline).toHaveBeenCalledWith("intro");
+  });
+
+  it("supports keyboard tab navigation and empty states", () => {
+    function Harness() {
+      const [sidebarTab, setSidebarTab] = useState<SidebarTab>("files");
+
+      return (
+        <WorkspaceSidebar
+          workspacePath="docs"
+          fileEntries={[]}
+          sidebarTab={sidebarTab}
+          activePath={null}
+          outline={[]}
+          onSidebarTabChange={setSidebarTab}
+          onSelectFile={vi.fn()}
+          onSelectOutline={vi.fn()}
+        />
+      );
+    }
+
+    render(<Harness />);
+
+    expect(screen.getByText("No markdown files were found in this workspace.")).toBeInTheDocument();
+
+    fireEvent.keyDown(screen.getByRole("tab", { name: "Files" }), { key: "ArrowRight" });
+
+    expect(screen.getByRole("tab", { name: "Outline" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByText("No headings found in the current document.")).toBeInTheDocument();
+  });
+
+  it("switches between the files and outline panels", () => {
+    function Harness() {
+      const [sidebarTab, setSidebarTab] = useState<SidebarTab>("files");
+
+      return (
+        <WorkspaceSidebar
+          workspacePath="docs"
+          fileEntries={[
+            {
+              path: "docs/a.md",
+              relativePath: "a.md",
+              name: "a.md",
+              directoryLabel: ".",
+              excerpt: null,
+              modifiedAt: null,
+            },
+          ]}
+          sidebarTab={sidebarTab}
+          activePath={null}
+          outline={[
+            { id: "intro", text: "Introduction", level: 1, line: 1, anchor: "introduction", isActive: false },
+          ]}
+          onSidebarTabChange={setSidebarTab}
+          onSelectFile={vi.fn()}
+          onSelectOutline={vi.fn()}
+        />
+      );
+    }
+
+    render(<Harness />);
+
+    expect(screen.getByRole("button", { name: /a\.md/i })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("tab", { name: "Outline" }));
+
+    expect(screen.getByRole("button", { name: "Introduction" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /a\.md/i })).not.toBeInTheDocument();
+  });
+});

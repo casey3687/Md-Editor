@@ -1,7 +1,16 @@
 import { invoke } from "@tauri-apps/api/core";
 import { open, save } from "@tauri-apps/plugin-dialog";
 
-import type { DirectoryNode } from "../../types/editor";
+import type { MarkdownFileEntry } from "../../types/editor";
+
+type RawMarkdownFileEntry = {
+  path: string;
+  relative_path: string;
+  name: string;
+  directory_label: string;
+  excerpt: string | null;
+  modified_at: number | null;
+};
 
 export function isMarkdownFile(path: string) {
   return path.toLowerCase().endsWith(".md");
@@ -15,8 +24,25 @@ function normalizeDialogPath(path: string | string[] | null): string | null {
   return null;
 }
 
+export function formatDirectoryLabel(directoryLabel: string | null | undefined) {
+  const normalized = (directoryLabel ?? "").trim().replaceAll("\\", "/");
+  return normalized.length > 0 ? normalized : ".";
+}
+
+function mapMarkdownFileEntry(entry: RawMarkdownFileEntry): MarkdownFileEntry {
+  return {
+    path: entry.path,
+    relativePath: entry.relative_path,
+    name: entry.name,
+    directoryLabel: formatDirectoryLabel(entry.directory_label),
+    excerpt: entry.excerpt,
+    modifiedAt: entry.modified_at,
+  };
+}
+
 export async function scanFolder(path: string) {
-  return invoke<DirectoryNode[]>("scan_folder", { path });
+  const entries = await invoke<RawMarkdownFileEntry[]>("scan_folder", { path });
+  return entries.map(mapMarkdownFileEntry);
 }
 
 export async function readMarkdownFile(path: string) {

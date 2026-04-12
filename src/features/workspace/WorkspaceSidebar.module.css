@@ -1,0 +1,95 @@
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 0.875rem;
+  min-width: 18rem;
+  padding: 1rem;
+  border-right: 1px solid #dbe4f0;
+  background: #ffffff;
+}
+
+.workspaceLabel {
+  margin: 0;
+  color: #64748b;
+  font-size: 0.875rem;
+}
+
+.tabList {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.tab {
+  border: 1px solid #cbd5e1;
+  border-radius: 999px;
+  background: #f8fafc;
+  color: #334155;
+  padding: 0.45rem 0.9rem;
+  cursor: pointer;
+}
+
+.tabActive {
+  border-color: #2563eb;
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.listItem {
+  min-width: 0;
+}
+
+.card,
+.outlineButton {
+  width: 100%;
+  border: 1px solid #dbe4f0;
+  border-radius: 0.875rem;
+  background: #f8fafc;
+  color: #0f172a;
+  padding: 0.75rem 0.875rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.card {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.cardActive,
+.outlineButtonActive {
+  border-color: #2563eb;
+  background: #eff6ff;
+}
+
+.cardName {
+  font-weight: 600;
+}
+
+.cardDirectory {
+  color: #64748b;
+  font-size: 0.8125rem;
+}
+
+.emptyState {
+  margin: 0;
+  border: 1px dashed #cbd5e1;
+  border-radius: 0.875rem;
+  background: #f8fafc;
+  color: #64748b;
+  padding: 0.875rem;
+}

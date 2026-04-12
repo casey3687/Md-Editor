@@ -1,0 +1,47 @@
+.toolbar {
+  position: sticky;
+  top: 1rem;
+  z-index: 20;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--surface-border);
+  border-radius: 1.125rem;
+  background: var(--surface);
+  box-shadow: var(--surface-shadow);
+  backdrop-filter: blur(14px);
+}
+
+.button {
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-secondary);
+  padding: 0.55rem 0.9rem;
+  cursor: pointer;
+}
+
+.button:hover {
+  border-color: rgba(29, 78, 216, 0.18);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+@media (max-width: 640px) {
+  .toolbar {
+    top: 0.75rem;
+    padding: 0.75rem;
+  }
+
+  .button {
+    flex: 1 1 calc(50% - 0.25rem);
+    justify-content: center;
+  }
+}

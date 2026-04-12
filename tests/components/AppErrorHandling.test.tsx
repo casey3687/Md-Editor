@@ -1,24 +1,69 @@
-import { render, screen, waitFor } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 type MockPendingNavigation = { type: "new-file" } | null;
 
+type MockEditorDocument = {
+  path: string | null;
+  name: string;
+  content: string;
+  isDirty: boolean;
+  mode: "preview-edit" | "source";
+  outline: Array<{
+    id: string;
+    text: string;
+    level: number;
+    line: number;
+    anchor: string;
+    isActive: boolean;
+  }>;
+};
+
+type MockEditorStoreState = {
+  workspacePath: string | null;
+  fileEntries: [];
+  sidebarTab: "files";
+  activeDocument: MockEditorDocument;
+  pendingNavigation: MockPendingNavigation;
+  errorMessage: string | null;
+  setFileEntries: ReturnType<typeof vi.fn>;
+  setSidebarTab: ReturnType<typeof vi.fn>;
+  toggleEditorMode: ReturnType<typeof vi.fn>;
+  setOutline: ReturnType<typeof vi.fn>;
+  setActiveOutline: ReturnType<typeof vi.fn>;
+  setActiveDocument: ReturnType<typeof vi.fn>;
+  updateContent: ReturnType<typeof vi.fn>;
+  setPendingNavigation: (pendingNavigation: MockPendingNavigation) => void;
+  clearPendingNavigation: () => void;
+  clearError: () => void;
+  setError: (errorMessage: string) => void;
+  setState: (
+    nextState: Partial<MockEditorStoreState> | ((currentState: MockEditorStoreState) => Partial<MockEditorStoreState>),
+  ) => void;
+};
+
 function createMockEditorStore() {
   type Listener = () => void;
 
-  let state = {
+  let state: MockEditorStoreState = {
     workspacePath: "docs" as string | null,
-    tree: [],
+    fileEntries: [],
+    sidebarTab: "files" as const,
     activeDocument: {
       path: "docs/a.md" as string | null,
       name: "a.md",
       content: "# First",
       isDirty: true,
+      mode: "preview-edit" as const,
+      outline: [],
     },
     pendingNavigation: { type: "new-file" } as MockPendingNavigation,
     errorMessage: null as string | null,
-    setWorkspace: vi.fn(),
+    setFileEntries: vi.fn(),
+    setSidebarTab: vi.fn(),
+    toggleEditorMode: vi.fn(),
+    setOutline: vi.fn(),
+    setActiveOutline: vi.fn(),
     setActiveDocument: vi.fn(() => {
       throw new Error("navigation failed");
     }),
@@ -39,6 +84,13 @@ function createMockEditorStore() {
       state = { ...state, errorMessage };
       notify();
     },
+    setState: (
+      nextState: Partial<MockEditorStoreState> | ((currentState: MockEditorStoreState) => Partial<MockEditorStoreState>),
+    ) => {
+      const patch = typeof nextState === "function" ? nextState(state) : nextState;
+      state = { ...state, ...patch };
+      notify();
+    },
   };
 
   const listeners = new Set<Listener>();
@@ -50,7 +102,9 @@ function createMockEditorStore() {
   return {
     getState: () => state,
     getInitialState: () => state,
-    setState: (nextState: Partial<typeof state> | ((currentState: typeof state) => Partial<typeof state>)) => {
+    setState: (
+      nextState: Partial<MockEditorStoreState> | ((currentState: MockEditorStoreState) => Partial<MockEditorStoreState>),
+    ) => {
       const patch = typeof nextState === "function" ? nextState(state) : nextState;
       state = { ...state, ...patch };
       notify();
@@ -104,11 +158,9 @@ import { App } from "../../src/app/App";
 
 describe("App error handling", () => {
   it("surfaces an error when discard-and-continue hits an uncaught navigation failure", async () => {
-    const user = userEvent.setup();
-
     render(<App />);
 
-    await user.click(screen.getByRole("button", { name: "Discard changes" }));
+    fireEvent.click(screen.getByRole("button", { name: "Discard changes" }));
 
     await waitFor(() => {
       expect(screen.getByRole("alert")).toHaveTextContent("navigation failed");

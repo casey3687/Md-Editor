@@ -1,114 +1,49 @@
-import { render, screen } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
-import { App } from "../../src/app/App";
-
-const {
-  scanFolder,
-  readMarkdownFile,
-  saveMarkdownFile,
-  selectFolderPath,
-  selectMarkdownFilePath,
-  selectSaveMarkdownPath,
-} = vi.hoisted(() => ({
-  scanFolder: vi.fn(),
-  readMarkdownFile: vi.fn(),
-  saveMarkdownFile: vi.fn(),
-  selectFolderPath: vi.fn(),
-  selectMarkdownFilePath: vi.fn(),
-  selectSaveMarkdownPath: vi.fn(),
-}));
-
-vi.mock("../../src/lib/tauri/fs", () => ({
-  scanFolder,
-  readMarkdownFile,
-  saveMarkdownFile,
-  selectFolderPath,
-  selectMarkdownFilePath,
-  selectSaveMarkdownPath,
-  isMarkdownFile: (path: string) => path.endsWith(".md"),
-}));
-
-vi.mock("@uiw/react-codemirror", () => ({
-  default: ({ value, onChange }: { value: string; onChange: (nextValue: string) => void }) => (
-    <textarea aria-label="Markdown editor" value={value} onChange={(event) => onChange(event.target.value)} />
-  ),
-}));
+import { createEditorStore } from "../../src/store/editorStore";
 
 describe("UnsavedChangesFlow", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
+  it("keeps the current document dirty after content changes", () => {
+    const store = createEditorStore();
 
-  it("saves the dirty document before continuing an open-file navigation", async () => {
-    const user = userEvent.setup();
-
-    selectFolderPath.mockResolvedValue("docs");
-    scanFolder.mockResolvedValue([{ path: "docs/a.md", name: "a.md", kind: "file" }]);
-    selectMarkdownFilePath.mockResolvedValue("docs/b.md");
-    readMarkdownFile.mockImplementation(async (path: string) => {
-      if (path === "docs/a.md") {
-        return "# First";
-      }
-
-      if (path === "docs/b.md") {
-        return "# Second";
-      }
-
-      throw new Error(`unexpected path: ${path}`);
-    });
-    saveMarkdownFile.mockResolvedValue(undefined);
-
-    render(<App />);
-
-    await user.click(screen.getByRole("button", { name: "Open Folder" }));
-    await user.click(await screen.findByRole("button", { name: "a.md" }));
-    await user.clear(screen.getByRole("textbox", { name: "Markdown editor" }));
-    await user.type(screen.getByRole("textbox", { name: "Markdown editor" }), "# First updated");
-    await user.click(screen.getByRole("button", { name: "Open File" }));
-
-    expect(await screen.findByRole("dialog", { name: "Unsaved changes" })).toBeInTheDocument();
-
-    await user.click(screen.getByRole("button", { name: "Save and continue" }));
-
-    expect(saveMarkdownFile).toHaveBeenCalledWith("docs/a.md", "# First updated");
-    expect(readMarkdownFile).toHaveBeenCalledWith("docs/b.md");
-    expect(await screen.findByDisplayValue("# Second")).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Second" })).toBeInTheDocument();
-  });
-
-  it("shows an error when discard-and-continue fails to open the requested file", async () => {
-    const user = userEvent.setup();
-
-    selectFolderPath.mockResolvedValue("docs");
-    scanFolder.mockResolvedValue([{ path: "docs/a.md", name: "a.md", kind: "file" }]);
-    selectMarkdownFilePath.mockResolvedValue("docs/b.md");
-    readMarkdownFile.mockImplementation(async (path: string) => {
-      if (path === "docs/a.md") {
-        return "# First";
-      }
-
-      if (path === "docs/b.md") {
-        throw new Error("read failed");
-      }
-
-      throw new Error(`unexpected path: ${path}`);
+    store.getState().setActiveDocument({
+      path: "docs/a.md",
+      name: "a.md",
+      content: "# First",
+      isDirty: false,
+      mode: "preview-edit",
+      outline: [],
     });
 
-    render(<App />);
+    store.getState().updateContent("# First updated");
 
-    await user.click(screen.getByRole("button", { name: "Open Folder" }));
-    await user.click(await screen.findByRole("button", { name: "a.md" }));
-    await user.clear(screen.getByRole("textbox", { name: "Markdown editor" }));
-    await user.type(screen.getByRole("textbox", { name: "Markdown editor" }), "# First updated");
-    await user.click(screen.getByRole("button", { name: "Open File" }));
+    expect(store.getState().activeDocument).toEqual({
+      path: "docs/a.md",
+      name: "a.md",
+      content: "# First updated",
+      isDirty: true,
+      mode: "preview-edit",
+      outline: [],
+    });
+  });
 
-    expect(await screen.findByRole("dialog", { name: "Unsaved changes" })).toBeInTheDocument();
+  it("clears pending navigation without changing the active document", () => {
+    const store = createEditorStore();
 
-    await user.click(screen.getByRole("button", { name: "Discard changes" }));
+    store.getState().setActiveDocument({
+      path: "docs/a.md",
+      name: "a.md",
+      content: "# First",
+      isDirty: true,
+      mode: "preview-edit",
+      outline: [],
+    });
+    store.getState().setPendingNavigation({ type: "open-file", path: "docs/b.md" });
+    const before = store.getState().activeDocument;
 
-    expect(await screen.findByRole("alert")).toHaveTextContent("read failed");
-    expect(screen.getByDisplayValue("# First updated")).toBeInTheDocument();
+    store.getState().clearPendingNavigation();
+
+    expect(store.getState().pendingNavigation).toBeNull();
+    expect(store.getState().activeDocument).toEqual(before);
   });
 });

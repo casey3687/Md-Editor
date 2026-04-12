@@ -1,0 +1,144 @@
+.preview {
+  min-height: 100%;
+  padding: 0.25rem 0;
+  color: var(--text-main);
+}
+
+.markdown {
+  max-width: 78ch;
+  color: inherit;
+  font-size: 1rem;
+  line-height: 1.78;
+  word-break: break-word;
+}
+
+.markdown :global(h1),
+.markdown :global(h2),
+.markdown :global(h3),
+.markdown :global(h4),
+.markdown :global(h5),
+.markdown :global(h6) {
+  margin: 1.6em 0 0.65em;
+  line-height: 1.15;
+  letter-spacing: -0.03em;
+  color: var(--text-main);
+}
+
+.markdown :global(h1) {
+  font-size: clamp(2rem, 3vw, 2.75rem);
+}
+
+.markdown :global(h2) {
+  font-size: clamp(1.6rem, 2.3vw, 2.1rem);
+}
+
+.markdown :global(h3) {
+  font-size: 1.4rem;
+}
+
+.markdown :global(p),
+.markdown :global(ul),
+.markdown :global(ol),
+.markdown :global(blockquote),
+.markdown :global(table),
+.markdown :global(pre),
+.markdown :global(dl) {
+  margin: 0 0 1rem;
+}
+
+.markdown :global(p),
+.markdown :global(li),
+.markdown :global(dd) {
+  color: var(--text-main);
+}
+
+.markdown :global(a) {
+  color: var(--accent);
+  text-decoration-thickness: 0.08em;
+  text-underline-offset: 0.16em;
+}
+
+.markdown :global(blockquote) {
+  padding: 0.2rem 1rem 0.2rem 1.1rem;
+  border-left: 3px solid rgba(29, 78, 216, 0.3);
+  color: var(--text-secondary);
+  background: rgba(239, 246, 255, 0.7);
+  border-radius: 0.75rem;
+}
+
+.markdown :global(code) {
+  border-radius: 0.4rem;
+  background: rgba(241, 245, 249, 0.95);
+  color: #0f172a;
+  padding: 0.14rem 0.35rem;
+  font-size: 0.92em;
+}
+
+.markdown :global(pre) {
+  overflow: auto;
+  border: 1px solid var(--code-border);
+  border-radius: 1rem;
+  background: var(--code-bg);
+  padding: 1rem 1.1rem;
+}
+
+.markdown :global(pre code) {
+  display: block;
+  padding: 0;
+  background: transparent;
+  color: inherit;
+}
+
+.markdown :global(table) {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.markdown :global(th),
+.markdown :global(td) {
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  padding: 0.65rem 0.75rem;
+  text-align: left;
+}
+
+.markdown :global(th) {
+  background: rgba(248, 250, 252, 0.95);
+}
+
+.markdown :global(img) {
+  max-width: 100%;
+  border-radius: 0.9rem;
+}
+
+.markdown :global(hr) {
+  border: 0;
+  border-top: 1px solid rgba(148, 163, 184, 0.28);
+  margin: 1.5rem 0;
+}
+
+.markdown :global(ul),
+.markdown :global(ol) {
+  padding-left: 1.4rem;
+}
+
+.markdown :global(li + li) {
+  margin-top: 0.35rem;
+}
+
+.markdown :global(dd) {
+  margin-left: 1.25rem;
+}
+
+.markdown :global(.contains-task-list) {
+  padding-left: 1.25rem;
+}
+
+@media (max-width: 640px) {
+  .markdown {
+    line-height: 1.72;
+  }
+
+  .markdown :global(pre) {
+    padding: 0.85rem 0.9rem;
+  }
+}

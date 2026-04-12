@@ -1,14 +1,21 @@
 import { WelcomeView } from "./WelcomeView";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { MarkdownEditor } from "../features/editor/MarkdownEditor";
-import { FileTree } from "../features/file-tree/FileTree";
-import { MarkdownPreview } from "../features/preview/MarkdownPreview";
+import { PreviewEditableSurface } from "../features/preview/PreviewEditableSurface";
+import { WorkspaceSidebar } from "../features/workspace/WorkspaceSidebar";
 import { Toolbar } from "../features/toolbar/Toolbar";
-import type { DirectoryNode, EditorDocument, PendingNavigation } from "../types/editor";
+import styles from "./AppShell.module.css";
+import type {
+  EditorDocument,
+  MarkdownFileEntry,
+  PendingNavigation,
+  SidebarTab,
+} from "../types/editor";
 
 type AppShellProps = {
   workspacePath: string | null;
-  tree: DirectoryNode[];
+  fileEntries: MarkdownFileEntry[];
+  sidebarTab: SidebarTab;
   activeDocument: EditorDocument | null;
   pendingNavigation: PendingNavigation;
   errorMessage: string | null;
@@ -18,7 +25,10 @@ type AppShellProps = {
   onSave: () => void;
   onSaveAs: () => void;
   onSelectFile: (path: string) => void;
+  onSidebarTabChange: (tab: SidebarTab) => void;
   onContentChange: (content: string) => void;
+  onToggleEditorMode: () => void;
+  onSelectOutline: (id: string) => void;
   onPendingNavigationChange: (pendingNavigation: PendingNavigation) => void;
   onSaveAndContinue: () => void;
   onDiscardChanges: () => void;
@@ -27,7 +37,8 @@ type AppShellProps = {
 
 export function AppShell({
   workspacePath,
-  tree,
+  fileEntries,
+  sidebarTab,
   activeDocument,
   pendingNavigation,
   errorMessage,
@@ -37,7 +48,10 @@ export function AppShell({
   onSave,
   onSaveAs,
   onSelectFile,
+  onSidebarTabChange,
   onContentChange,
+  onToggleEditorMode,
+  onSelectOutline,
   onPendingNavigationChange,
   onSaveAndContinue,
   onDiscardChanges,
@@ -59,8 +73,10 @@ export function AppShell({
     return <WelcomeView onOpenFolder={onOpenFolder} onOpenFile={onOpenFile} />;
   }
 
+  const outline = activeDocument?.outline ?? [];
+
   return (
-    <main>
+    <main className={styles.shell}>
       <Toolbar
         disableSave={!hasActiveDocument}
         onNewFile={() => requestNavigation({ type: "new-file" }, onNewFile)}
@@ -69,22 +85,41 @@ export function AppShell({
         onSave={onSave}
         onSaveAs={onSaveAs}
       />
-      {errorMessage ? <p role="alert">{errorMessage}</p> : null}
-      <section aria-label="Workspace shell">
-        <aside aria-label="Workspace files">
-          {workspacePath ? <p>Workspace loaded: {workspacePath}</p> : <p>Workspace ready</p>}
-          <FileTree
-            nodes={tree}
-            activePath={activeDocument?.path ?? null}
-            onSelectFile={(path) => requestNavigation({ type: "open-file", path }, () => onSelectFile(path))}
-          />
-        </aside>
-        <section aria-label="Markdown editor panel">
-          <MarkdownEditor content={activeDocument?.content ?? ""} onChange={onContentChange} />
+      {errorMessage ? (
+        <p role="alert" className={styles.errorBanner}>
+          {errorMessage}
+        </p>
+      ) : null}
+      <section aria-label="Workspace shell" className={styles.workspaceShell}>
+        <WorkspaceSidebar
+          workspacePath={workspacePath}
+          fileEntries={fileEntries}
+          sidebarTab={sidebarTab}
+          activePath={activeDocument?.path ?? null}
+          outline={outline}
+          onSidebarTabChange={onSidebarTabChange}
+          onSelectFile={(path) => requestNavigation({ type: "open-file", path }, () => onSelectFile(path))}
+          onSelectOutline={onSelectOutline}
+        />
+        <section aria-label="Markdown editor panel" className={styles.editorPanel}>
+          {hasActiveDocument ? (
+            <div className={styles.editorHeader}>
+              <button type="button" onClick={onToggleEditorMode} className={styles.editorModeButton}>
+                {activeDocument?.mode === "preview-edit" ? "Source mode" : "Preview edit mode"}
+              </button>
+            </div>
+          ) : null}
+          <div className={styles.editorSurface}>
+            {activeDocument?.mode === "source" ? (
+              <MarkdownEditor content={activeDocument?.content ?? ""} onChange={onContentChange} />
+            ) : (
+              <PreviewEditableSurface
+                content={activeDocument?.content ?? ""}
+                onContentChange={onContentChange}
+              />
+            )}
+          </div>
         </section>
-        <aside aria-label="Markdown preview panel">
-          <MarkdownPreview content={activeDocument?.content ?? ""} />
-        </aside>
       </section>
       <ConfirmDialog
         open={pendingNavigation !== null}

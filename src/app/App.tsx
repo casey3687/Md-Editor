@@ -2,7 +2,9 @@ import { useMemo } from "react";
 import { useStore } from "zustand";
 
 import { AppShell } from "./AppShell";
+import { useEditorShortcuts } from "./useEditorShortcuts";
 import { createEditorStore } from "../store/editorStore";
+import { extractMarkdownOutline } from "../lib/markdown/outline";
 import {
   readMarkdownFile,
   saveMarkdownFile,
@@ -11,7 +13,13 @@ import {
   selectMarkdownFilePath,
   selectSaveMarkdownPath,
 } from "../lib/tauri/fs";
-import type { EditorDocument, PendingNavigation } from "../types/editor";
+import type {
+  DirectoryNode,
+  EditorDocument,
+  MarkdownFileEntry,
+  PendingNavigation,
+  SidebarTab,
+} from "../types/editor";
 
 function getDocumentName(path: string | null) {
   if (!path) {
@@ -22,41 +30,185 @@ function getDocumentName(path: string | null) {
   return parts.at(-1) ?? "Untitled.md";
 }
 
+function normalizePath(path: string) {
+  return path.replace(/\\/g, "/");
+}
+
+function getRelativePath(path: string, workspacePath: string) {
+  const normalizedPath = normalizePath(path);
+  const normalizedWorkspace = normalizePath(workspacePath).replace(/\/$/, "");
+
+  if (normalizedPath === normalizedWorkspace) {
+    return "";
+  }
+
+  if (normalizedPath.startsWith(`${normalizedWorkspace}/`)) {
+    return normalizedPath.slice(normalizedWorkspace.length + 1);
+  }
+
+  return normalizedPath;
+}
+
+function getParentDirectory(path: string) {
+  const normalizedPath = normalizePath(path);
+  const lastSlashIndex = normalizedPath.lastIndexOf("/");
+
+  if (lastSlashIndex === -1) {
+    return null;
+  }
+
+  return normalizedPath.slice(0, lastSlashIndex) || null;
+}
+
+function isPathWithinWorkspace(path: string, workspacePath: string) {
+  const normalizedPath = normalizePath(path).toLowerCase();
+  const normalizedWorkspace = normalizePath(workspacePath).replace(/\/$/, "").toLowerCase();
+  return normalizedPath === normalizedWorkspace || normalizedPath.startsWith(`${normalizedWorkspace}/`);
+}
+
+function createEditorDocument(path: string | null, content: string): EditorDocument {
+  return {
+    path,
+    name: getDocumentName(path),
+    content,
+    isDirty: false,
+    mode: "preview-edit",
+    outline: extractMarkdownOutline(content),
+  };
+}
+
+function flattenDirectoryNodes(
+  nodes: DirectoryNode[],
+  workspacePath: string,
+  parentSegments: string[] = [],
+): MarkdownFileEntry[] {
+  return nodes.flatMap((node) => {
+    if (node.kind === "file") {
+      const relativePath = getRelativePath(node.path, workspacePath);
+      return [
+        {
+          path: node.path,
+          relativePath,
+          name: node.name,
+          directoryLabel: parentSegments.length ? parentSegments.join("/") : ".",
+          excerpt: null,
+          modifiedAt: null,
+        },
+      ];
+    }
+
+    return flattenDirectoryNodes(node.children, workspacePath, [...parentSegments, node.name]);
+  });
+}
+
+function isDirectoryNode(node: unknown): node is DirectoryNode {
+  if (!node || typeof node !== "object") {
+    return false;
+  }
+
+  const candidate = node as Partial<DirectoryNode>;
+  return typeof candidate.path === "string" && typeof candidate.name === "string" && typeof candidate.kind === "string";
+}
+
+function isMarkdownFileEntry(entry: unknown): entry is MarkdownFileEntry {
+  if (!entry || typeof entry !== "object") {
+    return false;
+  }
+
+  const candidate = entry as Partial<MarkdownFileEntry>;
+  return (
+    typeof candidate.path === "string" &&
+    typeof candidate.relativePath === "string" &&
+    typeof candidate.name === "string" &&
+    typeof candidate.directoryLabel === "string"
+  );
+}
+
+function normalizeScannedEntries(scanned: unknown, workspacePath: string): MarkdownFileEntry[] {
+  if (!Array.isArray(scanned)) {
+    return [];
+  }
+
+  if (scanned.every(isMarkdownFileEntry)) {
+    return [...scanned]
+      .map((entry) => ({
+        ...entry,
+        relativePath: normalizePath(entry.relativePath),
+        directoryLabel: entry.directoryLabel || ".",
+      }))
+      .sort((left, right) => left.relativePath.localeCompare(right.relativePath));
+  }
+
+  if (scanned.every(isDirectoryNode)) {
+    return flattenDirectoryNodes(scanned, workspacePath);
+  }
+
+  return [];
+}
+
 export function App() {
   const editorStore = useMemo(() => createEditorStore(), []);
 
   const workspacePath = useStore(editorStore, (state) => state.workspacePath);
-  const tree = useStore(editorStore, (state) => state.tree);
+  const fileEntries = useStore(editorStore, (state) => state.fileEntries);
+  const sidebarTab = useStore(editorStore, (state) => state.sidebarTab);
   const activeDocument = useStore(editorStore, (state) => state.activeDocument);
   const pendingNavigation = useStore(editorStore, (state) => state.pendingNavigation);
   const errorMessage = useStore(editorStore, (state) => state.errorMessage);
+  const toggleEditorMode = useStore(editorStore, (state) => state.toggleEditorMode);
 
-  const refreshWorkspaceTree = async (path: string | null) => {
+  useEditorShortcuts(toggleEditorMode);
+
+  const refreshWorkspaceFiles = async (path: string | null) => {
     if (!path) {
       return;
     }
 
-    const nodes = await scanFolder(path);
-    editorStore.getState().setWorkspace(path, nodes);
+    const scannedEntries = (await scanFolder(path)) as unknown;
+    const entries = normalizeScannedEntries(scannedEntries, path);
+    const state = editorStore.getState() as ReturnType<typeof editorStore.getState> & {
+      setFileEntries?:
+        | ((nextEntries: MarkdownFileEntry[]) => void)
+        | ((workspacePath: string | null, nextEntries: MarkdownFileEntry[]) => void);
+    };
+
+    if (typeof state.setFileEntries === "function") {
+      if (state.setFileEntries.length >= 2) {
+        (state.setFileEntries as (workspacePath: string | null, nextEntries: MarkdownFileEntry[]) => void)(
+          path,
+          entries,
+        );
+      } else {
+        (state.setFileEntries as (nextEntries: MarkdownFileEntry[]) => void)(entries);
+        editorStore.setState({ workspacePath: path });
+      }
+      return;
+    }
+
+    editorStore.setState({
+      workspacePath: path,
+      fileEntries: entries,
+    });
+  };
+
+  const syncActiveDocumentWithWorkspace = (nextWorkspacePath: string) => {
+    const state = editorStore.getState();
+    const activePath = state.activeDocument?.path;
+
+    if (!activePath || isPathWithinWorkspace(activePath, nextWorkspacePath)) {
+      return;
+    }
+
+    state.setActiveDocument(null);
   };
 
   const loadDocument = async (path: string) => {
     const content = await readMarkdownFile(path);
-    editorStore.getState().setActiveDocument({
-      path,
-      name: getDocumentName(path),
-      content,
-      isDirty: false,
-    });
+    editorStore.getState().setActiveDocument(createEditorDocument(path, content));
   };
 
   const createNewDocument = () => {
-    editorStore.getState().setActiveDocument({
-      path: null,
-      name: "Untitled.md",
-      content: "",
-      isDirty: false,
-    });
+    editorStore.getState().setActiveDocument(createEditorDocument(null, ""));
   };
 
   const handleOpenFolder = async () => {
@@ -66,9 +218,9 @@ export function App() {
         return;
       }
 
-      const nodes = await scanFolder(folderPath);
+      await refreshWorkspaceFiles(folderPath);
+      syncActiveDocumentWithWorkspace(folderPath);
       editorStore.getState().clearError();
-      editorStore.getState().setWorkspace(folderPath, nodes);
     } catch (error) {
       editorStore.getState().setError(error instanceof Error ? error.message : "Failed to open folder");
     }
@@ -98,7 +250,7 @@ export function App() {
   };
 
   const saveDocument = async (document: EditorDocument, pathOverride?: string) => {
-    const workspacePath = editorStore.getState().workspacePath;
+    const currentWorkspacePath = editorStore.getState().workspacePath;
     const nextPath =
       pathOverride ??
       document.path ??
@@ -115,7 +267,12 @@ export function App() {
       name: getDocumentName(nextPath),
       isDirty: false,
     });
-    await refreshWorkspaceTree(workspacePath);
+    const nextWorkspacePath =
+      currentWorkspacePath && isPathWithinWorkspace(nextPath, currentWorkspacePath)
+        ? currentWorkspacePath
+        : getParentDirectory(nextPath) ?? currentWorkspacePath;
+
+    await refreshWorkspaceFiles(nextWorkspacePath);
     return true;
   };
 
@@ -216,10 +373,25 @@ export function App() {
     editorStore.getState().clearPendingNavigation();
   };
 
+  const handleSidebarTabChange = (tab: SidebarTab) => {
+    editorStore.getState().setSidebarTab(tab);
+  };
+
+  const handleSelectOutline = (id: string) => {
+    editorStore.getState().setActiveOutline(id);
+  };
+
+  const handleContentChange = (content: string) => {
+    const state = editorStore.getState();
+    state.updateContent(content);
+    state.setOutline(extractMarkdownOutline(content));
+  };
+
   return (
     <AppShell
       workspacePath={workspacePath}
-      tree={tree}
+      fileEntries={fileEntries}
+      sidebarTab={sidebarTab}
       activeDocument={activeDocument}
       pendingNavigation={pendingNavigation}
       errorMessage={errorMessage}
@@ -229,7 +401,10 @@ export function App() {
       onSave={handleSave}
       onSaveAs={handleSaveAs}
       onSelectFile={handleSelectFile}
-      onContentChange={(content) => editorStore.getState().updateContent(content)}
+      onSidebarTabChange={handleSidebarTabChange}
+      onContentChange={handleContentChange}
+      onToggleEditorMode={toggleEditorMode}
+      onSelectOutline={handleSelectOutline}
       onPendingNavigationChange={(navigation) => editorStore.getState().setPendingNavigation(navigation)}
       onSaveAndContinue={handleSaveAndContinue}
       onDiscardChanges={handleDiscardChanges}
