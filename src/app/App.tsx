@@ -192,7 +192,13 @@ export function App() {
       return;
     }
 
-    await executePendingNavigation(navigation);
+    try {
+      await executePendingNavigation(navigation);
+    } catch (error) {
+      editorStore.getState().setError(
+        error instanceof Error ? error.message : "Failed to continue after discarding changes",
+      );
+    }
   };
 
   const handleCancelNavigation = () => {

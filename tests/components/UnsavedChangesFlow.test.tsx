@@ -77,4 +77,38 @@ describe("UnsavedChangesFlow", () => {
     expect(await screen.findByDisplayValue("# Second")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Second" })).toBeInTheDocument();
   });
+
+  it("shows an error when discard-and-continue fails to open the requested file", async () => {
+    const user = userEvent.setup();
+
+    selectFolderPath.mockResolvedValue("docs");
+    scanFolder.mockResolvedValue([{ path: "docs/a.md", name: "a.md", kind: "file" }]);
+    selectMarkdownFilePath.mockResolvedValue("docs/b.md");
+    readMarkdownFile.mockImplementation(async (path: string) => {
+      if (path === "docs/a.md") {
+        return "# First";
+      }
+
+      if (path === "docs/b.md") {
+        throw new Error("read failed");
+      }
+
+      throw new Error(`unexpected path: ${path}`);
+    });
+
+    render(<App />);
+
+    await user.click(screen.getByRole("button", { name: "Open Folder" }));
+    await user.click(await screen.findByRole("button", { name: "a.md" }));
+    await user.clear(screen.getByRole("textbox", { name: "Markdown editor" }));
+    await user.type(screen.getByRole("textbox", { name: "Markdown editor" }), "# First updated");
+    await user.click(screen.getByRole("button", { name: "Open File" }));
+
+    expect(await screen.findByRole("dialog", { name: "Unsaved changes" })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Discard changes" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("read failed");
+    expect(screen.getByDisplayValue("# First updated")).toBeInTheDocument();
+  });
 });
