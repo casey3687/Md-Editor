@@ -3,6 +3,16 @@ import { describe, expect, it, vi } from "vitest";
 
 type MockPendingNavigation = { type: "open-file"; path: string } | null;
 
+const { readMarkdownFile, saveMarkdownFile, scanFolder, selectFolderPath, selectMarkdownFilePath, selectSaveMarkdownPath } =
+  vi.hoisted(() => ({
+    readMarkdownFile: vi.fn().mockResolvedValue("# Loaded"),
+    saveMarkdownFile: vi.fn().mockResolvedValue(undefined),
+    scanFolder: vi.fn().mockResolvedValue([]),
+    selectFolderPath: vi.fn().mockResolvedValue(null),
+    selectMarkdownFilePath: vi.fn().mockResolvedValue(null),
+    selectSaveMarkdownPath: vi.fn().mockResolvedValue(null),
+  }));
+
 function createMockEditorStore() {
   type Listener = () => void;
 
@@ -37,6 +47,10 @@ function createMockEditorStore() {
     },
     setPendingNavigation: (pendingNavigation: MockPendingNavigation) => {
       state = { ...state, pendingNavigation };
+      notify();
+    },
+    clearPendingNavigation: () => {
+      state = { ...state, pendingNavigation: null };
       notify();
     },
     clearError: () => {
@@ -85,6 +99,15 @@ vi.mock("../../src/store/editorStore", async () => {
     createEditorStore: () => store,
   };
 });
+
+vi.mock("../../src/lib/tauri/fs", () => ({
+  readMarkdownFile,
+  saveMarkdownFile,
+  scanFolder,
+  selectFolderPath,
+  selectMarkdownFilePath,
+  selectSaveMarkdownPath,
+}));
 
 vi.mock("../../src/app/AppShell", () => ({
   AppShell: (props: {

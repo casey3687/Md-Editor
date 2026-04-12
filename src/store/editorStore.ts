@@ -27,6 +27,7 @@ type EditorState = {
   setActiveDocument: (document: EditorDocument | null) => void;
   updateContent: (content: string) => void;
   setPendingNavigation: (pending: PendingNavigation) => void;
+  clearPendingNavigation: () => void;
   clearError: () => void;
   setError: (message: string) => void;
 };
@@ -68,6 +69,10 @@ export function createEditorStore() {
     setPendingNavigation: (pendingNavigation) =>
       set({
         pendingNavigation: pendingNavigation ? { ...pendingNavigation } : null,
+      }),
+    clearPendingNavigation: () =>
+      set({
+        pendingNavigation: null,
       }),
     clearError: () => set({ errorMessage: null }),
     setError: (errorMessage) => set({ errorMessage }),

@@ -1,9 +1,38 @@
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import userEvent from "@testing-library/user-event";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { AppShell } from "../../src/app/AppShell";
+import { App } from "../../src/app/App";
+
+const { scanFolder, readMarkdownFile, saveMarkdownFile, selectFolderPath } = vi.hoisted(() => ({
+  scanFolder: vi.fn(),
+  readMarkdownFile: vi.fn(),
+  saveMarkdownFile: vi.fn(),
+  selectFolderPath: vi.fn(),
+}));
+
+vi.mock("../../src/lib/tauri/fs", () => ({
+  scanFolder,
+  readMarkdownFile,
+  saveMarkdownFile,
+  selectFolderPath,
+  selectMarkdownFilePath: vi.fn(),
+  selectSaveMarkdownPath: vi.fn(),
+  isMarkdownFile: (path: string) => path.endsWith(".md"),
+}));
+
+vi.mock("@uiw/react-codemirror", () => ({
+  default: ({ value, onChange }: { value: string; onChange: (nextValue: string) => void }) => (
+    <textarea aria-label="Markdown editor" value={value} onChange={(event) => onChange(event.target.value)} />
+  ),
+}));
 
 describe("AppShell", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
   it("requests pending navigation when a dirty action is blocked", () => {
     const onNewFile = vi.fn();
     const onPendingNavigationChange = vi.fn();
@@ -11,14 +40,17 @@ describe("AppShell", () => {
     render(
       <AppShell
         workspacePath="E:/notes"
-        hasActiveDocument
-        isDirtyDocument
+        tree={[]}
+        activeDocument={{ path: "E:/notes/today.md", name: "today.md", content: "# Notes", isDirty: true }}
         pendingNavigation={null}
+        errorMessage={null}
         onNewFile={onNewFile}
         onOpenFile={vi.fn()}
         onOpenFolder={vi.fn()}
         onSave={vi.fn()}
         onSaveAs={vi.fn()}
+        onSelectFile={vi.fn()}
+        onContentChange={vi.fn()}
         onPendingNavigationChange={onPendingNavigationChange}
         onSaveAndContinue={vi.fn()}
         onDiscardChanges={vi.fn()}
@@ -49,14 +81,17 @@ describe("AppShell", () => {
     render(
       <AppShell
         workspacePath="E:/notes"
-        hasActiveDocument
-        isDirtyDocument
+        tree={[]}
+        activeDocument={{ path: "E:/notes/today.md", name: "today.md", content: "# Notes", isDirty: true }}
         pendingNavigation={pendingNavigation}
+        errorMessage={null}
         onNewFile={vi.fn()}
         onOpenFile={vi.fn()}
         onOpenFolder={vi.fn()}
         onSave={vi.fn()}
         onSaveAs={vi.fn()}
+        onSelectFile={vi.fn()}
+        onContentChange={vi.fn()}
         onPendingNavigationChange={onPendingNavigationChange}
         onSaveAndContinue={callbacks.onSaveAndContinue}
         onDiscardChanges={callbacks.onDiscardChanges}
@@ -68,5 +103,21 @@ describe("AppShell", () => {
 
     expect(callbacks[callbackName]).toHaveBeenCalledTimes(1);
     expect(onPendingNavigationChange).not.toHaveBeenCalled();
+  });
+
+  it("loads a selected markdown file into the editor and preview", async () => {
+    const user = userEvent.setup();
+    selectFolderPath.mockResolvedValue("docs");
+    scanFolder.mockResolvedValue([{ path: "docs/a.md", name: "a.md", kind: "file" }]);
+    readMarkdownFile.mockResolvedValue("# Loaded");
+    saveMarkdownFile.mockResolvedValue(undefined);
+
+    render(<App />);
+
+    await user.click(screen.getByRole("button", { name: "Open Folder" }));
+    await user.click(await screen.findByRole("button", { name: "a.md" }));
+
+    expect(await screen.findByDisplayValue("# Loaded")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Loaded" })).toBeInTheDocument();
   });
 });
