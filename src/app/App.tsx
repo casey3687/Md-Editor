@@ -31,6 +31,15 @@ export function App() {
   const pendingNavigation = useStore(editorStore, (state) => state.pendingNavigation);
   const errorMessage = useStore(editorStore, (state) => state.errorMessage);
 
+  const refreshWorkspaceTree = async (path: string | null) => {
+    if (!path) {
+      return;
+    }
+
+    const nodes = await scanFolder(path);
+    editorStore.getState().setWorkspace(path, nodes);
+  };
+
   const loadDocument = async (path: string) => {
     const content = await readMarkdownFile(path);
     editorStore.getState().setActiveDocument({
@@ -89,6 +98,7 @@ export function App() {
   };
 
   const saveDocument = async (document: EditorDocument, pathOverride?: string) => {
+    const workspacePath = editorStore.getState().workspacePath;
     const nextPath =
       pathOverride ??
       document.path ??
@@ -105,6 +115,7 @@ export function App() {
       name: getDocumentName(nextPath),
       isDirty: false,
     });
+    await refreshWorkspaceTree(workspacePath);
     return true;
   };
 

@@ -5,11 +5,12 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AppShell } from "../../src/app/AppShell";
 import { App } from "../../src/app/App";
 
-const { scanFolder, readMarkdownFile, saveMarkdownFile, selectFolderPath } = vi.hoisted(() => ({
+const { scanFolder, readMarkdownFile, saveMarkdownFile, selectFolderPath, selectSaveMarkdownPath } = vi.hoisted(() => ({
   scanFolder: vi.fn(),
   readMarkdownFile: vi.fn(),
   saveMarkdownFile: vi.fn(),
   selectFolderPath: vi.fn(),
+  selectSaveMarkdownPath: vi.fn(),
 }));
 
 vi.mock("../../src/lib/tauri/fs", () => ({
@@ -18,7 +19,7 @@ vi.mock("../../src/lib/tauri/fs", () => ({
   saveMarkdownFile,
   selectFolderPath,
   selectMarkdownFilePath: vi.fn(),
-  selectSaveMarkdownPath: vi.fn(),
+  selectSaveMarkdownPath,
   isMarkdownFile: (path: string) => path.endsWith(".md"),
 }));
 
@@ -119,5 +120,30 @@ describe("AppShell", () => {
 
     expect(await screen.findByDisplayValue("# Loaded")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Loaded" })).toBeInTheDocument();
+  });
+
+  it("refreshes the workspace tree after saving an untitled document into the open workspace", async () => {
+    const user = userEvent.setup();
+    selectFolderPath.mockResolvedValue("docs");
+    selectSaveMarkdownPath.mockResolvedValue("docs/new-file.md");
+    scanFolder
+      .mockResolvedValueOnce([{ path: "docs/a.md", name: "a.md", kind: "file" }])
+      .mockResolvedValueOnce([
+        { path: "docs/a.md", name: "a.md", kind: "file" },
+        { path: "docs/new-file.md", name: "new-file.md", kind: "file" },
+      ]);
+    saveMarkdownFile.mockResolvedValue(undefined);
+
+    render(<App />);
+
+    await user.click(screen.getByRole("button", { name: "Open Folder" }));
+    await screen.findByRole("button", { name: "a.md" });
+
+    await user.click(screen.getByRole("button", { name: "New" }));
+    await user.type(screen.getByRole("textbox", { name: "Markdown editor" }), "# New file");
+    await user.click(screen.getByRole("button", { name: "Save As" }));
+
+    expect(saveMarkdownFile).toHaveBeenCalledWith("docs/new-file.md", "# New file");
+    expect(await screen.findByRole("button", { name: "new-file.md" })).toBeInTheDocument();
   });
 });
