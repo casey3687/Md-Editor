@@ -5,6 +5,7 @@ use crate::models::{DirectoryNode, DirectoryNodeKind};
 
 #[tauri::command]
 pub fn scan_folder(path: String) -> Result<Vec<DirectoryNode>, String> {
+    validate_directory_path(Path::new(&path))?;
     scan_folder_entries(Path::new(&path)).map_err(|error| error.to_string())
 }
 
@@ -64,15 +65,25 @@ pub fn scan_folder_entries(path: &Path) -> std::io::Result<Vec<DirectoryNode>> {
 
 fn validate_markdown_path(path: &Path) -> Result<(), String> {
     if is_markdown_file(path) {
-        if let Ok(metadata) = fs::symlink_metadata(path) {
+        validate_path_has_no_symlink_components(path)
+    } else {
+        Err("only .md files are supported".to_string())
+    }
+}
+
+fn validate_directory_path(path: &Path) -> Result<(), String> {
+    validate_path_has_no_symlink_components(path)
+}
+
+fn validate_path_has_no_symlink_components(path: &Path) -> Result<(), String> {
+    for candidate in path.ancestors() {
+        if let Ok(metadata) = fs::symlink_metadata(candidate) {
             if metadata.file_type().is_symlink() {
                 return Err("symlink paths are not supported".to_string());
             }
         }
-        Ok(())
-    } else {
-        Err("only .md files are supported".to_string())
     }
+    Ok(())
 }
 
 fn is_markdown_file(path: &Path) -> bool {
@@ -206,6 +217,63 @@ mod tests {
 
     #[cfg(windows)]
     #[test]
+    fn read_markdown_file_rejects_symlinked_parent_directories() {
+        use std::os::windows::fs::symlink_dir;
+
+        let root = unique_temp_dir();
+        let real_dir = root.join("real");
+        let link_dir = root.join("linked");
+        let file_path = link_dir.join("note.md");
+
+        fs::create_dir_all(&real_dir).expect("create real directory");
+        fs::write(real_dir.join("note.md"), "# Note").expect("write markdown target");
+
+        if let Err(err) = symlink_dir(&real_dir, &link_dir) {
+            eprintln!("skipping parent symlink regression test because symlink creation failed: {err}");
+            fs::remove_dir_all(&root).ok();
+            return;
+        }
+
+        let error = crate::commands::fs::read_markdown_file(file_path.to_string_lossy().into_owned())
+            .expect_err("path through symlinked parent should be rejected");
+
+        assert!(error.contains("symlink"));
+
+        fs::remove_dir_all(&root).expect("clean up temp tree");
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn save_markdown_file_rejects_symlinked_parent_directories() {
+        use std::os::windows::fs::symlink_dir;
+
+        let root = unique_temp_dir();
+        let real_dir = root.join("real");
+        let link_dir = root.join("linked");
+        let file_path = link_dir.join("note.md");
+
+        fs::create_dir_all(&real_dir).expect("create real directory");
+
+        if let Err(err) = symlink_dir(&real_dir, &link_dir) {
+            eprintln!("skipping parent symlink regression test because symlink creation failed: {err}");
+            fs::remove_dir_all(&root).ok();
+            return;
+        }
+
+        let error = crate::commands::fs::save_markdown_file(
+            file_path.to_string_lossy().into_owned(),
+            "# Note".to_string(),
+        )
+        .expect_err("path through symlinked parent should be rejected");
+
+        assert!(error.contains("symlink"));
+        assert!(!real_dir.join("note.md").exists());
+
+        fs::remove_dir_all(&root).expect("clean up temp tree");
+    }
+
+    #[cfg(windows)]
+    #[test]
     fn read_markdown_file_rejects_markdown_symlink_paths() {
         use std::os::windows::fs::symlink_file;
 
@@ -255,6 +323,32 @@ mod tests {
         .expect_err("markdown symlink path should be rejected");
 
         assert!(error.contains("symlink") || error.contains(".md"));
+
+        fs::remove_dir_all(&root).expect("clean up temp tree");
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn scan_folder_rejects_symlinked_root_directory() {
+        use std::os::windows::fs::symlink_dir;
+
+        let root = unique_temp_dir();
+        let real_dir = root.join("real");
+        let link_dir = root.join("linked");
+
+        fs::create_dir_all(&real_dir).expect("create real directory");
+        fs::write(real_dir.join("note.md"), "# Note").expect("write markdown target");
+
+        if let Err(err) = symlink_dir(&real_dir, &link_dir) {
+            eprintln!("skipping root symlink regression test because symlink creation failed: {err}");
+            fs::remove_dir_all(&root).ok();
+            return;
+        }
+
+        let error = crate::commands::fs::scan_folder(link_dir.to_string_lossy().into_owned())
+            .expect_err("symlinked root directory should be rejected");
+
+        assert!(error.contains("symlink"));
 
         fs::remove_dir_all(&root).expect("clean up temp tree");
     }
