@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { collectPreviewBlocks, rewritePreviewBlock } from "../../../../src/lib/markdown/previewEdit";
 
 describe("previewEdit helpers", () => {
-  it("collects safe editable blocks for headings and paragraphs while keeping code fences read-only", () => {
+  it("collects editable blocks and uses raw mode for complex markdown blocks", () => {
     const markdown = `# Title
 
 First paragraph.
@@ -26,13 +26,13 @@ const count = 1;
     expect(result.hasUnsafeBlocks).toBe(false);
     expect(blockSummary).toEqual([
       { kind: "heading", editable: true, text: "Title", line: 1, level: 1 },
-      { kind: "paragraph", editable: true, text: "First paragraph.", line: 3 },
-      { kind: "code", editable: false, text: "const count = 1;", line: 5 },
+      { kind: "paragraph", editable: true, text: "First paragraph.", line: 3, level: undefined },
+      { kind: "raw", editable: true, text: "```ts\nconst count = 1;\n```", line: 5, level: undefined },
       { kind: "heading", editable: true, text: "Next", line: 9, level: 2 },
     ]);
   });
 
-  it("marks paragraphs with inline markdown as read-only", () => {
+  it("maps inline-marked paragraphs to raw editable blocks", () => {
     const markdown = `Plain text paragraph.
 
 Paragraph with [link](https://example.com).`;
@@ -46,15 +46,15 @@ Paragraph with [link](https://example.com).`;
         editable: true,
       }),
       expect.objectContaining({
-        kind: "paragraph",
-        text: "Paragraph with link.",
-        editable: false,
+        kind: "raw",
+        text: "Paragraph with [link](https://example.com).",
+        editable: true,
       }),
     ]);
-    expect(result.hasUnsafeBlocks).toBe(true);
+    expect(result.hasUnsafeBlocks).toBe(false);
   });
 
-  it("rewrites editable block text in the full markdown string and rejects read-only blocks", () => {
+  it("rewrites editable block text in the full markdown string", () => {
     const markdown = `# Title
 
 First paragraph.
@@ -66,11 +66,11 @@ const count = 1;
     const result = collectPreviewBlocks(markdown);
     const headingBlock = result.blocks.find((block) => block.kind === "heading");
     const paragraphBlock = result.blocks.find((block) => block.kind === "paragraph");
-    const codeBlock = result.blocks.find((block) => block.kind === "code");
+    const rawBlock = result.blocks.find((block) => block.kind === "raw");
 
     expect(headingBlock).toBeDefined();
     expect(paragraphBlock).toBeDefined();
-    expect(codeBlock).toBeDefined();
+    expect(rawBlock).toBeDefined();
 
     const headingRewrite = rewritePreviewBlock(markdown, headingBlock!, "Updated title");
     expect(headingRewrite.ok).toBe(true);
@@ -96,8 +96,8 @@ const count = 1;
     expect(suffixRewrite.ok).toBe(true);
     expect(suffixRewrite.markdown).toBe("## Updated heading ##");
 
-    const codeRewrite = rewritePreviewBlock(paragraphRewrite.markdown, codeBlock!, "const count = 2;");
-    expect(codeRewrite.ok).toBe(false);
-    expect(codeRewrite.markdown).toBe(paragraphRewrite.markdown);
+    const rawRewrite = rewritePreviewBlock(paragraphRewrite.markdown, rawBlock!, "```ts\nconst count = 2;\n```");
+    expect(rawRewrite.ok).toBe(true);
+    expect(rawRewrite.markdown).toContain("const count = 2;");
   });
 });

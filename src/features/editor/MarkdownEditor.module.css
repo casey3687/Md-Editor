@@ -1,17 +1,20 @@
 .editor {
   flex: 1;
-  min-height: 100%;
+  min-height: 0;
   display: flex;
   flex-direction: column;
-  border: 1px solid var(--surface-border);
+  border: 2px solid var(--surface-border);
   border-radius: 1rem;
   background: var(--surface-strong);
   overflow: hidden;
 }
 
 .editor :global(.cm-editor) {
+  flex: 1;
+  min-height: 0;
   height: 100%;
-  min-height: 100%;
+  display: flex;
+  flex-direction: column;
   font-family:
     "JetBrains Mono", "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
   font-size: var(--editor-font-size);
@@ -20,24 +23,30 @@
   background: transparent;
 }
 
-.editor :global(.cm-scroller) {
+.editor :global(.cm-theme),
+.editor :global(.cm-container) {
+  flex: 1;
+  min-height: 0;
   height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.editor :global(.cm-scroller) {
+  flex: 1;
+  height: 100%;
+  min-height: 0;
   overflow: auto;
   padding: 1rem 1rem 1.25rem;
 }
 
-.editor :global(.cm-content),
-.editor :global(.cm-gutter),
-.editor :global(.cm-gutters) {
-  min-height: 100%;
-}
-
 .editor :global(.cm-content) {
+  min-height: 0;
   caret-color: var(--accent);
 }
 
 .editor :global(.cm-gutters) {
-  border-right-color: rgba(148, 163, 184, 0.18);
+  border-right: 2px solid rgba(148, 163, 184, 0.32);
   background: var(--surface-muted);
   color: var(--text-muted);
 }

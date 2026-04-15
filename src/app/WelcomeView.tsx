@@ -15,11 +15,11 @@ export function WelcomeView({ onOpenFolder, onOpenFile }: WelcomeViewProps) {
           Open a folder to browse your notes, or open a single .md file to start editing right away.
         </p>
         <div className={styles.actions}>
-          <button type="button" onClick={onOpenFolder} className={styles.primaryButton}>
-            Open Folder
+          <button type="button" aria-label="Open Folder" onClick={onOpenFolder} className={styles.primaryButton}>
+            打开文件夹
           </button>
-          <button type="button" onClick={onOpenFile} className={styles.secondaryButton}>
-            Open File
+          <button type="button" aria-label="Open File" onClick={onOpenFile} className={styles.secondaryButton}>
+            打开文件
           </button>
         </div>
       </div>

@@ -11,9 +11,9 @@ type FileListPanelProps = {
 
 export function FileListPanel({ id, labelledBy, fileEntries, activePath, onSelectFile }: FileListPanelProps) {
   return (
-    <section role="tabpanel" id={id} aria-labelledby={labelledBy} className={styles.panel} tabIndex={0}>
+    <section role="tabpanel" id={id} aria-labelledby={labelledBy} className={styles.panel} tabIndex={-1}>
       {fileEntries.length === 0 ? (
-        <p className={styles.emptyState}>No markdown files were found in this workspace.</p>
+        <p className={styles.emptyState}>当前工作区没有发现 Markdown 文件。</p>
       ) : (
         <nav aria-label="Markdown files">
           <ul className={styles.list}>

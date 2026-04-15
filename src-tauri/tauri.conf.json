@@ -3,8 +3,8 @@
   "version": "0.1.0",
   "identifier": "com.casey3687.mdeditor",
   "build": {
-    "beforeDevCommand": "",
-    "beforeBuildCommand": "",
+    "beforeDevCommand": "npm run dev",
+    "beforeBuildCommand": "npm run build",
     "devUrl": "http://localhost:5173",
     "frontendDist": "../dist"
   },
@@ -12,10 +12,21 @@
     "icon": ["icons/icon.ico"]
   },
   "app": {
+    "security": {
+      "assetProtocol": {
+        "enable": true,
+        "scope": ["**"]
+      }
+    },
     "windows": [
       {
         "label": "main",
-        "title": "Markdown Editor"
+        "title": "Markdown Editor",
+        "width": 1480,
+        "height": 920,
+        "minWidth": 1100,
+        "minHeight": 720,
+        "center": true
       }
     ]
   }

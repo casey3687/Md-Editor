@@ -1,12 +1,31 @@
 import { useEffect, useEffectEvent } from "react";
 
-function isToggleEditorModeShortcut(event: KeyboardEvent) {
-  const hasToggleModifier = event.ctrlKey || event.metaKey;
-  if (!hasToggleModifier || event.altKey) {
-    return false;
-  }
+function hasModifier(event: KeyboardEvent) {
+  return (event.ctrlKey || event.metaKey) && !event.altKey;
+}
 
-  return event.code === "Slash" || event.key === "/";
+function isToggleEditorModeShortcut(event: KeyboardEvent) {
+  return hasModifier(event) && !event.shiftKey && (event.code === "Slash" || event.key === "/");
+}
+
+function isSaveShortcut(event: KeyboardEvent) {
+  return hasModifier(event) && !event.shiftKey && event.key.toLowerCase() === "s";
+}
+
+function isSaveAsShortcut(event: KeyboardEvent) {
+  return hasModifier(event) && event.shiftKey && event.key.toLowerCase() === "s";
+}
+
+function isNewFileShortcut(event: KeyboardEvent) {
+  return hasModifier(event) && !event.shiftKey && event.key.toLowerCase() === "n";
+}
+
+function isOpenFileShortcut(event: KeyboardEvent) {
+  return hasModifier(event) && !event.shiftKey && event.key.toLowerCase() === "o";
+}
+
+function isOpenFolderShortcut(event: KeyboardEvent) {
+  return hasModifier(event) && event.shiftKey && event.key.toLowerCase() === "o";
 }
 
 function isInteractiveControl(target: EventTarget | null) {
@@ -17,25 +36,61 @@ function isInteractiveControl(target: EventTarget | null) {
   return target.closest('button, a[href], [role="button"], [role="tab"], [role="menuitem"]') !== null;
 }
 
-type ToggleEditorMode = () => void;
+export interface EditorShortcutsHandlers {
+  onToggleEditorMode: () => void;
+  onNewFile: () => void;
+  onOpenFile: () => void;
+  onOpenFolder: () => void;
+  onSave: () => void;
+  onSaveAs: () => void;
+}
 
-export function useEditorShortcuts(toggleEditorMode: ToggleEditorMode) {
-  const onToggleEditorMode = useEffectEvent(() => {
-    toggleEditorMode();
+export function useEditorShortcuts(handlers: EditorShortcutsHandlers) {
+  const handleKeyDownEvent = useEffectEvent((event: KeyboardEvent) => {
+    const isControl = isInteractiveControl(event.target);
+
+    if (isToggleEditorModeShortcut(event)) {
+      if (!isControl) {
+        event.preventDefault();
+        handlers.onToggleEditorMode();
+      }
+      return;
+    }
+
+    if (isSaveAsShortcut(event)) {
+      event.preventDefault();
+      handlers.onSaveAs();
+      return;
+    }
+
+    if (isSaveShortcut(event)) {
+      event.preventDefault();
+      handlers.onSave();
+      return;
+    }
+
+    if (isNewFileShortcut(event)) {
+      event.preventDefault();
+      handlers.onNewFile();
+      return;
+    }
+
+    if (isOpenFolderShortcut(event)) {
+      event.preventDefault();
+      handlers.onOpenFolder();
+      return;
+    }
+
+    if (isOpenFileShortcut(event)) {
+      event.preventDefault();
+      handlers.onOpenFile();
+      return;
+    }
   });
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (isInteractiveControl(event.target)) {
-        return;
-      }
-
-      if (!isToggleEditorModeShortcut(event)) {
-        return;
-      }
-
-      event.preventDefault();
-      onToggleEditorMode();
+      handleKeyDownEvent(event);
     };
 
     window.addEventListener("keydown", handleKeyDown);

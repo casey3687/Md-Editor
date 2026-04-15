@@ -20,7 +20,7 @@ type MarkdownNode = {
   children?: MarkdownNode[];
 };
 
-export type PreviewBlockKind = "heading" | "paragraph" | "code" | "unsupported";
+export type PreviewBlockKind = "heading" | "paragraph" | "raw";
 
 export type PreviewBlock = {
   id: string;
@@ -43,7 +43,7 @@ export type PreviewBlocksResult = {
 export type PreviewRewriteResult = {
   ok: boolean;
   markdown: string;
-  reason?: "read-only" | "missing-block" | "unsupported" | "stale-block";
+  reason?: "read-only" | "missing-block" | "stale-block";
 };
 
 const HEADING_PATTERN = /^(#{1,6})[ \t]+(.+?)(?:[ \t]+#+[ \t]*)?$/;
@@ -63,6 +63,10 @@ function extractNodeText(node: MarkdownNode): string {
 
 function hasOnlyTextChildren(node: MarkdownNode): boolean {
   return node.children?.every((child) => child.type === "text") ?? false;
+}
+
+function isCommentHtml(sourceSlice: string): boolean {
+  return /^\s*<!--[\s\S]*?-->\s*$/.test(sourceSlice);
 }
 
 function asMappedPosition(position: Position | undefined) {
@@ -103,6 +107,10 @@ function collectBlocks(markdown: string): PreviewBlocksResult {
     }
 
     const sourceSlice = markdown.slice(mappedPosition.startOffset, mappedPosition.endOffset);
+    if (node.type === "html" && isCommentHtml(sourceSlice)) {
+      continue;
+    }
+
     const idFor = (kind: PreviewBlockKind) => createBlockId(index, kind, mappedPosition.line);
 
     if (node.type === "heading") {
@@ -120,47 +128,48 @@ function collectBlocks(markdown: string): PreviewBlocksResult {
       });
 
       if (!editable) {
-        hasUnsafeBlocks = true;
+        blocks.push({
+          id: idFor("raw"),
+          kind: "raw",
+          text: sourceSlice,
+          editable: true,
+          source: sourceSlice,
+          ...mappedPosition,
+        });
       }
-
       continue;
     }
 
     if (node.type === "paragraph") {
       const editable = hasOnlyTextChildren(node);
+      if (!editable) {
+        blocks.push({
+          id: idFor("raw"),
+          kind: "raw",
+          text: sourceSlice,
+          editable: true,
+          source: sourceSlice,
+          ...mappedPosition,
+        });
+        continue;
+      }
+
       blocks.push({
         id: idFor("paragraph"),
         kind: "paragraph",
         text: extractNodeText(node).trim(),
-        editable,
-        source: sourceSlice,
-        ...mappedPosition,
-      });
-
-      if (!editable) {
-        hasUnsafeBlocks = true;
-      }
-      continue;
-    }
-
-    if (node.type === "code") {
-      blocks.push({
-        id: idFor("code"),
-        kind: "code",
-        text: typeof node.value === "string" ? node.value : "",
-        editable: false,
+        editable: true,
         source: sourceSlice,
         ...mappedPosition,
       });
       continue;
     }
 
-    hasUnsafeBlocks = true;
     blocks.push({
-      id: idFor("unsupported"),
-      kind: "unsupported",
-      text: sourceSlice.trim(),
-      editable: false,
+      id: idFor("raw"),
+      kind: "raw",
+      text: sourceSlice,
+      editable: true,
       source: sourceSlice,
       ...mappedPosition,
     });
@@ -211,12 +220,12 @@ export function rewritePreviewBlock(
   if (refreshed.kind === "heading") {
     replacement = rewriteHeading(sourceSlice, nextText);
     if (replacement === null) {
-      return { ok: false, markdown, reason: "unsupported" };
+      replacement = nextText;
     }
-  } else if (refreshed.kind === "paragraph") {
+  } else if (refreshed.kind === "paragraph" || refreshed.kind === "raw") {
     replacement = nextText;
   } else {
-    return { ok: false, markdown, reason: "unsupported" };
+    return { ok: false, markdown, reason: "read-only" };
   }
 
   return {

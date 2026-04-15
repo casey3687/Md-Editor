@@ -10,6 +10,7 @@ type WorkspaceSidebarProps = {
   sidebarTab: SidebarTab;
   activePath: string | null;
   outline: OutlineItem[];
+  visibleOutlineIds?: string[];
   onSidebarTabChange: (tab: SidebarTab) => void;
   onSelectFile: (path: string) => void;
   onSelectOutline: (id: string) => void;
@@ -21,6 +22,7 @@ export function WorkspaceSidebar({
   sidebarTab,
   activePath,
   outline,
+  visibleOutlineIds = [],
   onSidebarTabChange,
   onSelectFile,
   onSelectOutline,
@@ -66,10 +68,11 @@ export function WorkspaceSidebar({
 
   return (
     <aside aria-label="Workspace navigation" className={styles.sidebar}>
-      <p className={styles.workspaceLabel}>{workspacePath ? `Workspace loaded: ${workspacePath}` : "Workspace ready"}</p>
+      <p className={styles.workspaceLabel}>{workspacePath ? `已加载工作区：${workspacePath}` : "工作区就绪"}</p>
       <div role="tablist" aria-label="Sidebar tabs" className={styles.tabList}>
         <button
           type="button"
+          aria-label="Files"
           role="tab"
           id={filesTabId}
           ref={filesTabRef}
@@ -80,10 +83,11 @@ export function WorkspaceSidebar({
           onKeyDown={(event) => handleTabKeyDown(event, "files")}
           onClick={() => onSidebarTabChange("files")}
         >
-          Files
+          文件
         </button>
         <button
           type="button"
+          aria-label="Outline"
           role="tab"
           id={outlineTabId}
           ref={outlineTabRef}
@@ -94,7 +98,7 @@ export function WorkspaceSidebar({
           onKeyDown={(event) => handleTabKeyDown(event, "outline")}
           onClick={() => onSidebarTabChange("outline")}
         >
-          Outline
+          大纲
         </button>
       </div>
       {sidebarTab === "files" ? (
@@ -106,7 +110,13 @@ export function WorkspaceSidebar({
           onSelectFile={onSelectFile}
         />
       ) : (
-        <OutlinePanel id={outlinePanelId} labelledBy={outlineTabId} outline={outline} onSelectOutline={onSelectOutline} />
+        <OutlinePanel
+          id={outlinePanelId}
+          labelledBy={outlineTabId}
+          outline={outline}
+          visibleOutlineIds={visibleOutlineIds}
+          onSelectOutline={onSelectOutline}
+        />
       )}
     </aside>
   );

@@ -17,7 +17,7 @@
   --surface: rgba(255, 255, 255, 0.88);
   --surface-strong: #ffffff;
   --surface-muted: #f8fafc;
-  --surface-border: rgba(148, 163, 184, 0.24);
+  --surface-border: rgba(148, 163, 184, 0.46);
   --surface-shadow: 0 20px 48px rgba(15, 23, 42, 0.08);
   --text-main: #0f172a;
   --text-secondary: #475569;
@@ -41,6 +41,7 @@ body {
   min-height: 100vh;
   background: var(--app-bg);
   color: var(--text-main);
+  overflow: hidden;
 }
 
 button {

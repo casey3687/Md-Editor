@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import { MarkdownPreview } from "../../src/features/preview/MarkdownPreview";
 
 describe("MarkdownPreview", () => {
-  it("renders tables, definition lists, superscript, subscript, raw html line breaks, and code block markers", () => {
+  it("renders tables, definition lists, superscript, subscript, line breaks, and code metadata", () => {
     const { container } = render(
       <MarkdownPreview
         content={`| Name | Value |
@@ -13,6 +13,9 @@ describe("MarkdownPreview", () => {
 
 Term
 : Definition
+
+line one
+line two
 
 2^10^ and H~2~O<br />Next line
 
@@ -32,8 +35,9 @@ const value = 1;
     expect(container.querySelector("dd")?.textContent).toBe("Definition");
     expect(container.querySelector("sup")?.textContent).toBe("10");
     expect(container.querySelector("sub")?.textContent).toBe("2");
-    expect(container.querySelector("br")).toBeInTheDocument();
+    expect(container.querySelectorAll("br").length).toBeGreaterThan(0);
     expect(container.querySelector('pre[data-code-block="true"]')).toBeInTheDocument();
+    expect(container.querySelector('[data-code-block="true"]')?.previousElementSibling?.textContent).toBe("ts");
   });
 
   it("does not render raw script elements from markdown html", () => {

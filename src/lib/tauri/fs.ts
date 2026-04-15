@@ -12,6 +12,10 @@ type RawMarkdownFileEntry = {
   modified_at: number | null;
 };
 
+export async function getStartupArgs(): Promise<string[]> {
+  return invoke<string[]>("get_startup_args");
+}
+
 export function isMarkdownFile(path: string) {
   return path.toLowerCase().endsWith(".md");
 }
@@ -58,7 +62,7 @@ export async function selectFolderPath() {
     await open({
       directory: true,
       multiple: false,
-      title: "Open Folder",
+      title: "打开文件夹",
     }),
   );
 }
@@ -68,7 +72,7 @@ export async function selectMarkdownFilePath() {
     await open({
       multiple: false,
       directory: false,
-      title: "Open Markdown File",
+      title: "打开 Markdown 文件",
       filters: [{ name: "Markdown", extensions: ["md"] }],
     }),
   );
@@ -76,7 +80,7 @@ export async function selectMarkdownFilePath() {
 
 export async function selectSaveMarkdownPath(defaultPath?: string) {
   const selectedPath = await save({
-    title: "Save Markdown File",
+    title: "保存 Markdown 文件",
     defaultPath,
     filters: [{ name: "Markdown", extensions: ["md"] }],
   });

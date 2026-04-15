@@ -19,6 +19,8 @@ type AppShellProps = {
   activeDocument: EditorDocument | null;
   pendingNavigation: PendingNavigation;
   errorMessage: string | null;
+  statusMessage?: string | null;
+  outlineJump?: { line: number; token: number } | null;
   onNewFile: () => void;
   onOpenFile: () => void;
   onOpenFolder: () => void;
@@ -29,6 +31,12 @@ type AppShellProps = {
   onContentChange: (content: string) => void;
   onToggleEditorMode: () => void;
   onSelectOutline: (id: string) => void;
+  onSurfaceScrollRatioChange?: (ratio: number) => void;
+  onViewportLineChange?: (line: number) => void;
+  onViewportRangeChange?: (startLine: number, endLine: number) => void;
+  visibleOutlineIds?: string[];
+  surfaceScrollRatio?: number;
+  surfaceScrollToken?: number | null;
   onPendingNavigationChange: (pendingNavigation: PendingNavigation) => void;
   onSaveAndContinue: () => void;
   onDiscardChanges: () => void;
@@ -42,6 +50,8 @@ export function AppShell({
   activeDocument,
   pendingNavigation,
   errorMessage,
+  statusMessage = null,
+  outlineJump = null,
   onNewFile,
   onOpenFile,
   onOpenFolder,
@@ -52,6 +62,12 @@ export function AppShell({
   onContentChange,
   onToggleEditorMode,
   onSelectOutline,
+  onSurfaceScrollRatioChange,
+  onViewportLineChange,
+  onViewportRangeChange,
+  visibleOutlineIds = [],
+  surfaceScrollRatio = 0,
+  surfaceScrollToken = null,
   onPendingNavigationChange,
   onSaveAndContinue,
   onDiscardChanges,
@@ -90,6 +106,11 @@ export function AppShell({
           {errorMessage}
         </p>
       ) : null}
+      {!errorMessage && statusMessage ? (
+        <p role="status" className={styles.successBanner}>
+          {statusMessage}
+        </p>
+      ) : null}
       <section aria-label="Workspace shell" className={styles.workspaceShell}>
         <WorkspaceSidebar
           workspacePath={workspacePath}
@@ -97,6 +118,7 @@ export function AppShell({
           sidebarTab={sidebarTab}
           activePath={activeDocument?.path ?? null}
           outline={outline}
+          visibleOutlineIds={visibleOutlineIds}
           onSidebarTabChange={onSidebarTabChange}
           onSelectFile={(path) => requestNavigation({ type: "open-file", path }, () => onSelectFile(path))}
           onSelectOutline={onSelectOutline}
@@ -104,18 +126,41 @@ export function AppShell({
         <section aria-label="Markdown editor panel" className={styles.editorPanel}>
           {hasActiveDocument ? (
             <div className={styles.editorHeader}>
-              <button type="button" onClick={onToggleEditorMode} className={styles.editorModeButton}>
-                {activeDocument?.mode === "preview-edit" ? "Source mode" : "Preview edit mode"}
+              <button
+                type="button"
+                aria-label={activeDocument?.mode === "preview-edit" ? "Source mode" : "Preview edit mode"}
+                onClick={onToggleEditorMode}
+                className={styles.editorModeButton}
+              >
+                {activeDocument?.mode === "preview-edit" ? "源码模式" : "预览编辑模式"}
               </button>
             </div>
           ) : null}
           <div className={styles.editorSurface}>
             {activeDocument?.mode === "source" ? (
-              <MarkdownEditor content={activeDocument?.content ?? ""} onChange={onContentChange} />
+              <MarkdownEditor
+                content={activeDocument?.content ?? ""}
+                onChange={onContentChange}
+                jumpToLine={outlineJump?.line ?? null}
+                jumpToken={outlineJump?.token ?? null}
+                onScrollRatioChange={onSurfaceScrollRatioChange}
+                onViewportLineChange={onViewportLineChange}
+                onViewportRangeChange={onViewportRangeChange}
+                scrollRatio={surfaceScrollRatio}
+                scrollToken={surfaceScrollToken}
+              />
             ) : (
               <PreviewEditableSurface
                 content={activeDocument?.content ?? ""}
+                documentPath={activeDocument?.path ?? null}
                 onContentChange={onContentChange}
+                jumpToLine={outlineJump?.line ?? null}
+                jumpToken={outlineJump?.token ?? null}
+                onScrollRatioChange={onSurfaceScrollRatioChange}
+                onViewportLineChange={onViewportLineChange}
+                onViewportRangeChange={onViewportRangeChange}
+                scrollRatio={surfaceScrollRatio}
+                scrollToken={surfaceScrollToken}
               />
             )}
           </div>

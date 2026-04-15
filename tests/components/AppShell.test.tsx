@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AppShell } from "../../src/app/AppShell";
 import { App } from "../../src/app/App";
 
-const { scanFolder, readMarkdownFile, saveMarkdownFile, selectFolderPath, selectMarkdownFilePath, selectSaveMarkdownPath } =
+const { scanFolder, readMarkdownFile, saveMarkdownFile, selectFolderPath, selectMarkdownFilePath, selectSaveMarkdownPath, getStartupArgs } =
   vi.hoisted(() => ({
     scanFolder: vi.fn(),
     readMarkdownFile: vi.fn(),
@@ -12,6 +12,7 @@ const { scanFolder, readMarkdownFile, saveMarkdownFile, selectFolderPath, select
     selectFolderPath: vi.fn(),
     selectMarkdownFilePath: vi.fn(),
     selectSaveMarkdownPath: vi.fn(),
+    getStartupArgs: vi.fn().mockResolvedValue([]),
   }));
 
 vi.mock("../../src/lib/tauri/fs", () => ({
@@ -21,6 +22,7 @@ vi.mock("../../src/lib/tauri/fs", () => ({
   selectFolderPath,
   selectMarkdownFilePath,
   selectSaveMarkdownPath,
+  getStartupArgs,
   isMarkdownFile: (path: string) => path.endsWith(".md"),
 }));
 
@@ -113,12 +115,13 @@ describe("AppShell", () => {
       />,
     );
 
-    const headingEditor = screen.getByRole("textbox", { name: /Heading level 1/i });
+    const wysiwygEditor = screen.getByRole("textbox", { name: "WYSIWYG markdown editor" });
     expect(screen.getByRole("button", { name: "Source mode" })).toBeInTheDocument();
     expect(screen.queryByRole("textbox", { name: "Markdown editor" })).not.toBeInTheDocument();
 
-    headingEditor.textContent = "Updated title";
-    fireEvent.blur(headingEditor);
+    wysiwygEditor.innerHTML = "<h1>Updated title</h1><p>Plain paragraph.</p>";
+    fireEvent.input(wysiwygEditor);
+    fireEvent.blur(wysiwygEditor);
 
     expect(onContentChange).toHaveBeenCalledWith(expect.stringContaining("# Updated title"));
   });

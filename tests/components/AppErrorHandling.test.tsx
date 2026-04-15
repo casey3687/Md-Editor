@@ -136,6 +136,7 @@ vi.mock("../../src/lib/tauri/fs", () => ({
   selectFolderPath: vi.fn(),
   selectMarkdownFilePath: vi.fn(),
   selectSaveMarkdownPath: vi.fn(),
+  getStartupArgs: vi.fn().mockResolvedValue([]),
 }));
 
 vi.mock("../../src/app/AppShell", () => ({

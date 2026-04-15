@@ -5,6 +5,11 @@ use std::time::UNIX_EPOCH;
 use crate::models::MarkdownFileEntry;
 
 #[tauri::command]
+pub fn get_startup_args() -> Vec<String> {
+    std::env::args().collect()
+}
+
+#[tauri::command]
 pub fn scan_folder(path: String) -> Result<Vec<MarkdownFileEntry>, String> {
     let path = Path::new(&path);
     validate_directory_path(path)?;

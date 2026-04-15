@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useStore } from "zustand";
 
 import { AppShell } from "./AppShell";
@@ -12,6 +12,8 @@ import {
   selectFolderPath,
   selectMarkdownFilePath,
   selectSaveMarkdownPath,
+  getStartupArgs,
+  isMarkdownFile,
 } from "../lib/tauri/fs";
 import type {
   DirectoryNode,
@@ -148,6 +150,13 @@ function normalizeScannedEntries(scanned: unknown, workspacePath: string): Markd
 
 export function App() {
   const editorStore = useMemo(() => createEditorStore(), []);
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const [outlineJump, setOutlineJump] = useState<{ line: number; token: number } | null>(null);
+  const [surfaceScrollRatio, setSurfaceScrollRatio] = useState(0);
+  const [surfaceScrollToken, setSurfaceScrollToken] = useState<number | null>(null);
+  const [viewportRange, setViewportRange] = useState<{ startLine: number; endLine: number } | null>(null);
+  const [activeOutlineId, setActiveOutlineId] = useState<string | null>(null);
+  const clearStatusTimerRef = useRef<number | null>(null);
 
   const workspacePath = useStore(editorStore, (state) => state.workspacePath);
   const fileEntries = useStore(editorStore, (state) => state.fileEntries);
@@ -157,7 +166,47 @@ export function App() {
   const errorMessage = useStore(editorStore, (state) => state.errorMessage);
   const toggleEditorMode = useStore(editorStore, (state) => state.toggleEditorMode);
 
-  useEditorShortcuts(toggleEditorMode);
+  const handleToggleEditorMode = () => {
+    setSurfaceScrollToken(Date.now());
+    setViewportRange(null);
+    toggleEditorMode();
+  };
+
+  useEffect(() => {
+    return () => {
+      if (clearStatusTimerRef.current !== null) {
+        window.clearTimeout(clearStatusTimerRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    getStartupArgs()
+      .then((args) => {
+        // Typically the first argument is the executable path, and subsequent arguments are passed files/flags.
+        // We look for the first valid markdown file path.
+        const targetPath = args.find((arg) => isMarkdownFile(arg));
+        if (targetPath) {
+          handleSelectFile(targetPath);
+        }
+      })
+      .catch((error) => {
+        console.error("Failed to read startup arguments:", error);
+      });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const showSavedStatus = (path: string) => {
+    if (clearStatusTimerRef.current !== null) {
+      window.clearTimeout(clearStatusTimerRef.current);
+    }
+
+    setStatusMessage(`Saved ${getDocumentName(path)}`);
+    clearStatusTimerRef.current = window.setTimeout(() => {
+      setStatusMessage(null);
+      clearStatusTimerRef.current = null;
+    }, 2200);
+  };
 
   const refreshWorkspaceFiles = async (path: string | null) => {
     if (!path) {
@@ -249,7 +298,7 @@ export function App() {
     }
   };
 
-  const saveDocument = async (document: EditorDocument, pathOverride?: string) => {
+  const saveDocument = async (document: EditorDocument, pathOverride?: string): Promise<string | null> => {
     const currentWorkspacePath = editorStore.getState().workspacePath;
     const nextPath =
       pathOverride ??
@@ -257,7 +306,7 @@ export function App() {
       (await selectSaveMarkdownPath(document.path ?? document.name));
 
     if (!nextPath) {
-      return false;
+      return null;
     }
 
     await saveMarkdownFile(nextPath, document.content);
@@ -273,7 +322,7 @@ export function App() {
         : getParentDirectory(nextPath) ?? currentWorkspacePath;
 
     await refreshWorkspaceFiles(nextWorkspacePath);
-    return true;
+    return nextPath;
   };
 
   const handleSave = async () => {
@@ -283,9 +332,13 @@ export function App() {
     }
 
     try {
-      await saveDocument(document);
+      const savedPath = await saveDocument(document);
+      if (savedPath) {
+        showSavedStatus(savedPath);
+      }
       editorStore.getState().clearError();
     } catch (error) {
+      setStatusMessage(null);
       editorStore.getState().setError(error instanceof Error ? error.message : "Failed to save file");
     }
   };
@@ -302,9 +355,13 @@ export function App() {
         return;
       }
 
-      await saveDocument(document, path);
+      const savedPath = await saveDocument(document, path);
+      if (savedPath) {
+        showSavedStatus(savedPath);
+      }
       editorStore.getState().clearError();
     } catch (error) {
+      setStatusMessage(null);
       editorStore.getState().setError(error instanceof Error ? error.message : "Failed to save file");
     }
   };
@@ -344,10 +401,12 @@ export function App() {
         return;
       }
 
+      showSavedStatus(didSave);
       state.clearPendingNavigation();
       state.clearError();
       await executePendingNavigation(navigation);
     } catch (error) {
+      setStatusMessage(null);
       editorStore.getState().setError(error instanceof Error ? error.message : "Failed to continue after save");
     }
   };
@@ -378,8 +437,102 @@ export function App() {
   };
 
   const handleSelectOutline = (id: string) => {
-    editorStore.getState().setActiveOutline(id);
+    const state = editorStore.getState();
+    const target = state.activeDocument?.outline.find((item) => item.id === id);
+    state.setActiveOutline(id);
+    setActiveOutlineId(id);
+    setViewportRange(null);
+
+    if (!target) {
+      return;
+    }
+
+    setOutlineJump({
+      line: target.line,
+      token: Date.now(),
+    });
   };
+
+  const handleViewportRangeChange = useCallback((startLine: number, endLine: number) => {
+    const normalizedStart = Math.max(1, Math.min(startLine, endLine));
+    const normalizedEnd = Math.max(normalizedStart, Math.max(startLine, endLine));
+
+    setViewportRange((previous) => {
+      if (previous?.startLine === normalizedStart && previous?.endLine === normalizedEnd) {
+        return previous;
+      }
+
+      return {
+        startLine: normalizedStart,
+        endLine: normalizedEnd,
+      };
+    });
+  }, []);
+
+  const handleViewportLineChange = useCallback((line: number) => {
+    const state = editorStore.getState();
+    const outline = state.activeDocument?.outline ?? [];
+
+    if (outline.length === 0) {
+      return;
+    }
+
+    let activeId: string | null = null;
+    for (const item of outline) {
+      if (item.line <= line) {
+        activeId = item.id;
+      } else {
+        break;
+      }
+    }
+
+    if (!activeId) {
+      activeId = outline.at(0)?.id ?? null;
+    }
+
+    if (!activeId) {
+      return;
+    }
+
+    setActiveOutlineId(activeId);
+    const currentActiveId = outline.find((item) => item.isActive)?.id ?? null;
+    if (currentActiveId === activeId) {
+      return;
+    }
+
+    state.setActiveOutline(activeId);
+  }, [editorStore]);
+
+  useEditorShortcuts({
+    onToggleEditorMode: handleToggleEditorMode,
+    onNewFile: createNewDocument,
+    onOpenFile: handleOpenFile,
+    onOpenFolder: handleOpenFolder,
+    onSave: handleSave,
+    onSaveAs: handleSaveAs,
+  });
+
+  const visibleOutlineIds = useMemo(() => {
+    if (!activeDocument || !viewportRange) {
+      return activeOutlineId ? [activeOutlineId] : [];
+    }
+
+    const ids = activeDocument.outline
+      .filter((item) => item.line >= viewportRange.startLine && item.line <= viewportRange.endLine)
+      .map((item) => item.id);
+
+    if (ids.length > 0) {
+      return ids;
+    }
+
+    return activeOutlineId ? [activeOutlineId] : [];
+  }, [activeDocument, viewportRange, activeOutlineId]);
+
+  useEffect(() => {
+    const currentActive = activeDocument?.outline.find((item) => item.isActive)?.id ?? null;
+    setActiveOutlineId(currentActive);
+    setViewportRange(null);
+  }, [activeDocument?.path, activeDocument?.mode]);
 
   const handleContentChange = (content: string) => {
     const state = editorStore.getState();
@@ -395,6 +548,8 @@ export function App() {
       activeDocument={activeDocument}
       pendingNavigation={pendingNavigation}
       errorMessage={errorMessage}
+      statusMessage={statusMessage}
+      outlineJump={outlineJump}
       onNewFile={createNewDocument}
       onOpenFile={handleOpenFile}
       onOpenFolder={handleOpenFolder}
@@ -403,8 +558,14 @@ export function App() {
       onSelectFile={handleSelectFile}
       onSidebarTabChange={handleSidebarTabChange}
       onContentChange={handleContentChange}
-      onToggleEditorMode={toggleEditorMode}
+      onToggleEditorMode={handleToggleEditorMode}
       onSelectOutline={handleSelectOutline}
+      onSurfaceScrollRatioChange={setSurfaceScrollRatio}
+      onViewportLineChange={handleViewportLineChange}
+      onViewportRangeChange={handleViewportRangeChange}
+      visibleOutlineIds={visibleOutlineIds}
+      surfaceScrollRatio={surfaceScrollRatio}
+      surfaceScrollToken={surfaceScrollToken}
       onPendingNavigationChange={(navigation) => editorStore.getState().setPendingNavigation(navigation)}
       onSaveAndContinue={handleSaveAndContinue}
       onDiscardChanges={handleDiscardChanges}

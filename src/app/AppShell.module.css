@@ -23,7 +23,7 @@
   min-width: 0;
   min-height: 0;
   padding: 1rem;
-  border: 1px solid var(--surface-border);
+  border: 2px solid var(--surface-border);
   border-radius: 1.125rem;
   background: var(--surface);
   box-shadow: var(--surface-shadow);
@@ -40,7 +40,7 @@
 
 .editorModeButton {
   align-self: flex-start;
-  border: 1px solid var(--surface-border);
+  border: 2px solid var(--surface-border);
   border-radius: 999px;
   background: var(--surface-strong);
   color: var(--text-main);
@@ -56,6 +56,13 @@
 
 .editorSurface {
   display: flex;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.editorSurface > * {
   flex: 1;
   min-height: 0;
   min-width: 0;
@@ -75,10 +82,19 @@
 
 .errorBanner {
   margin: 0;
-  border: 1px solid rgba(220, 38, 38, 0.2);
+  border: 2px solid rgba(220, 38, 38, 0.28);
   border-radius: 1rem;
   background: rgba(254, 242, 242, 0.92);
   color: #991b1b;
+  padding: 0.9rem 1rem;
+}
+
+.successBanner {
+  margin: 0;
+  border: 2px solid rgba(22, 163, 74, 0.28);
+  border-radius: 1rem;
+  background: rgba(240, 253, 244, 0.95);
+  color: #166534;
   padding: 0.9rem 1rem;
 }
 

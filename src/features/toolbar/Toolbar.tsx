@@ -19,20 +19,20 @@ export function Toolbar({
 }: ToolbarProps) {
   return (
     <nav aria-label="Editor toolbar" className={styles.toolbar}>
-      <button type="button" onClick={onNewFile} className={styles.button}>
-        New
+      <button type="button" aria-label="New" onClick={onNewFile} className={styles.button}>
+        新建
       </button>
-      <button type="button" onClick={onOpenFile} className={styles.button}>
-        Open File
+      <button type="button" aria-label="Open File" onClick={onOpenFile} className={styles.button}>
+        打开文件
       </button>
-      <button type="button" onClick={onOpenFolder} className={styles.button}>
-        Open Folder
+      <button type="button" aria-label="Open Folder" onClick={onOpenFolder} className={styles.button}>
+        打开文件夹
       </button>
-      <button type="button" onClick={onSave} disabled={disableSave} className={styles.button}>
-        Save
+      <button type="button" aria-label="Save" onClick={onSave} disabled={disableSave} className={styles.button}>
+        保存
       </button>
-      <button type="button" onClick={onSaveAs} className={styles.button}>
-        Save As
+      <button type="button" aria-label="Save As" onClick={onSaveAs} className={styles.button}>
+        另存为
       </button>
     </nav>
   );

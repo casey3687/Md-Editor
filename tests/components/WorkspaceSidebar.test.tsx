@@ -67,9 +67,37 @@ describe("WorkspaceSidebar", () => {
     fireEvent.click(screen.getByRole("button", { name: "Introduction" }));
 
     expect(screen.getByRole("button", { name: "Usage" })).toHaveAttribute("aria-current", "location");
-    expect(screen.getByRole("button", { name: "Usage" })).toHaveStyle("padding-inline-start: calc(0.875rem + 0.75rem)");
+    expect(screen.getByRole("button", { name: "Usage" })).toHaveStyle("padding-inline-start: calc(0.75rem + 0.85rem)");
     expect(onSelectOutline).toHaveBeenCalledTimes(1);
     expect(onSelectOutline).toHaveBeenCalledWith("intro");
+  });
+
+  it("filters outline entries with the search field and supports clearing the query", () => {
+    render(
+      <WorkspaceSidebar
+        workspacePath="docs"
+        fileEntries={[]}
+        sidebarTab="outline"
+        activePath={null}
+        outline={[
+          { id: "intro", text: "Introduction", level: 1, line: 1, anchor: "introduction", isActive: false },
+          { id: "usage", text: "Usage Guide", level: 1, line: 8, anchor: "usage-guide", isActive: false },
+        ]}
+        onSidebarTabChange={vi.fn()}
+        onSelectFile={vi.fn()}
+        onSelectOutline={vi.fn()}
+      />,
+    );
+
+    fireEvent.change(screen.getByRole("searchbox", { name: "查找大纲" }), { target: { value: "usage" } });
+
+    expect(screen.getByRole("button", { name: "Usage Guide" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Introduction" })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "清空搜索" }));
+
+    expect(screen.getByRole("button", { name: "Introduction" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Usage Guide" })).toBeInTheDocument();
   });
 
   it("supports keyboard tab navigation and empty states", () => {
@@ -92,12 +120,12 @@ describe("WorkspaceSidebar", () => {
 
     render(<Harness />);
 
-    expect(screen.getByText("No markdown files were found in this workspace.")).toBeInTheDocument();
+    expect(screen.getByText("当前工作区没有发现 Markdown 文件。")).toBeInTheDocument();
 
     fireEvent.keyDown(screen.getByRole("tab", { name: "Files" }), { key: "ArrowRight" });
 
     expect(screen.getByRole("tab", { name: "Outline" })).toHaveAttribute("aria-selected", "true");
-    expect(screen.getByText("No headings found in the current document.")).toBeInTheDocument();
+    expect(screen.getByText("当前文档未发现标题。")).toBeInTheDocument();
   });
 
   it("switches between the files and outline panels", () => {

@@ -1,68 +1,165 @@
 .surface {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-  min-height: 100%;
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  border: 2px solid var(--surface-border);
+  border-radius: 1rem;
+  background: var(--surface-strong);
+  padding: 1rem 1rem 1.15rem;
+  color: var(--text-main);
   font-size: 1rem;
-  line-height: 1.78;
-}
-
-.warningMessage {
-  margin: 0;
-  border: 1px solid #f59e0b;
-  border-radius: 0.875rem;
-  background: #fffbeb;
-  color: #92400e;
-  padding: 0.75rem 0.875rem;
-}
-
-.editableHeading,
-.editableParagraph {
-  margin: 0;
-}
-
-.editableHeading {
-  color: #0f172a;
-  line-height: 1.2;
-}
-
-.editableParagraph {
-  color: #1e293b;
-  line-height: 1.8;
-}
-
-.editableText {
-  display: inline-block;
-  min-width: 1ch;
+  line-height: 1.72;
   outline: none;
-  white-space: pre-wrap;
   word-break: break-word;
-  font-size: 1rem;
-  line-height: inherit;
 }
 
-.editableText:focus {
-  border-radius: 0.25rem;
-  outline: 2px solid rgba(37, 99, 235, 0.4);
-  outline-offset: 2px;
-  box-shadow: none;
+.surface:focus {
+  border-color: rgba(29, 78, 216, 0.32);
+  box-shadow: 0 0 0 2px rgba(29, 78, 216, 0.18);
 }
 
-@media (forced-colors: active) {
-  .editableText:focus {
-    outline: 2px solid Highlight;
-  }
-}
-
-.editableText:empty::before {
-  content: attr(data-placeholder);
+.surface:empty::before {
+  content: "Start writing...";
   color: #94a3b8;
 }
 
-.readOnlyBlock {
-  min-width: 0;
+.surface :global(h1),
+.surface :global(h2),
+.surface :global(h3),
+.surface :global(h4),
+.surface :global(h5),
+.surface :global(h6) {
+  margin: 0.65rem 0 0.4rem;
+  line-height: 1.16;
+  letter-spacing: -0.02em;
+  color: var(--text-main);
 }
 
-.emptyParagraph {
-  margin: 0;
+.surface :global(h1) {
+  font-size: clamp(2rem, 3vw, 2.6rem);
+}
+
+.surface :global(h2) {
+  font-size: clamp(1.55rem, 2.2vw, 2rem);
+}
+
+.surface :global(h3) {
+  font-size: 1.35rem;
+}
+
+.surface :global(p),
+.surface :global(ul),
+.surface :global(ol),
+.surface :global(blockquote),
+.surface :global(table),
+.surface :global(dl) {
+  margin: 0 0 0.85rem;
+}
+
+.surface :global(blockquote) {
+  margin-bottom: 0.65rem;
+  padding: 0 0 0 0.9rem;
+  border-left: 5px solid rgba(203, 213, 225, 0.96);
+  color: #64748b;
+  background: transparent;
+  border-radius: 0;
+}
+
+.surface :global(blockquote blockquote) {
+  margin-top: 0.55rem;
+  border-left-color: rgba(219, 228, 240, 1);
+}
+
+.surface :global(hr) {
+  border: 0;
+  border-top: 2px solid rgba(148, 163, 184, 0.42);
+  margin: 0.5rem 0;
+}
+
+.surface :global(hr + h1),
+.surface :global(hr + h2),
+.surface :global(hr + h3),
+.surface :global(hr + h4),
+.surface :global(hr + h5),
+.surface :global(hr + h6) {
+  margin-top: 0.35rem;
+}
+
+.surface :global(a) {
+  color: var(--accent);
+  text-decoration-thickness: 0.08em;
+  text-underline-offset: 0.16em;
+}
+
+.surface :global(code) {
+  border-radius: 0.4rem;
+  background: rgba(241, 245, 249, 0.95);
+  color: #0f172a;
+  padding: 0.14rem 0.35rem;
+  font-size: 0.92em;
+}
+
+.surface :global(pre) {
+  position: relative;
+  margin: 0 0 1rem;
+  overflow: auto;
+  border: 2px solid rgba(15, 23, 42, 0.32);
+  border-radius: 0.9rem;
+  background: #0f172a;
+  color: #e2e8f0;
+  padding: 1rem;
+}
+
+.surface :global(pre[data-language]) {
+  padding-top: 2rem;
+}
+
+.surface :global(pre[data-language]::before) {
+  content: attr(data-language);
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  border-bottom: 2px solid rgba(148, 163, 184, 0.35);
+  background: #111827;
+  color: #cbd5e1;
+  padding: 0.42rem 0.75rem;
+  font-size: 0.72rem;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.surface :global(pre code) {
+  padding: 0;
+  background: transparent;
+  color: inherit;
+}
+
+.surface :global(table) {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.surface :global(th),
+.surface :global(td) {
+  border: 2px solid rgba(148, 163, 184, 0.4);
+  padding: 0.65rem 0.75rem;
+  text-align: left;
+}
+
+.surface :global(input[type="checkbox"]) {
+  margin-right: 0.45rem;
+  transform: scale(1.12);
+  accent-color: #2563eb;
+}
+
+.surface :global(ul),
+.surface :global(ol) {
+  padding-left: 1.4rem;
+}
+
+@media (max-width: 640px) {
+  .surface {
+    padding: 0.85rem 0.85rem 1rem;
+  }
 }
