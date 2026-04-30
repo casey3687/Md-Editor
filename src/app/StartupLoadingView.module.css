@@ -1,0 +1,20 @@
+.loadingView {
+  display: grid;
+  place-items: center;
+  min-height: 100vh;
+  padding: 1.5rem;
+  background: var(--app-background, #eef4fb);
+}
+
+.message {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 1rem;
+  line-height: 1.5;
+}
+
+@media (max-width: 640px) {
+  .loadingView {
+    padding: 0.75rem;
+  }
+}

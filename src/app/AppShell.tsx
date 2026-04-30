@@ -1,4 +1,5 @@
 import { WelcomeView } from "./WelcomeView";
+import { StartupLoadingView } from "./StartupLoadingView";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { MarkdownEditor } from "../features/editor/MarkdownEditor";
 import { PreviewEditableSurface } from "../features/preview/PreviewEditableSurface";
@@ -20,6 +21,8 @@ type AppShellProps = {
   pendingNavigation: PendingNavigation;
   errorMessage: string | null;
   statusMessage?: string | null;
+  isDocumentOpening?: boolean;
+  showLoadingMessage?: boolean;
   outlineJump?: { line: number; token: number } | null;
   onNewFile: () => void;
   onOpenFile: () => void;
@@ -51,6 +54,8 @@ export function AppShell({
   pendingNavigation,
   errorMessage,
   statusMessage = null,
+  isDocumentOpening = false,
+  showLoadingMessage = false,
   outlineJump = null,
   onNewFile,
   onOpenFile,
@@ -86,6 +91,10 @@ export function AppShell({
   };
 
   if (!workspacePath && !hasActiveDocument) {
+    if (isDocumentOpening) {
+      return <StartupLoadingView showMessage={showLoadingMessage} />;
+    }
+
     return <WelcomeView onOpenFolder={onOpenFolder} onOpenFile={onOpenFile} />;
   }
 

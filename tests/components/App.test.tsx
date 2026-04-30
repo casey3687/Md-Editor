@@ -44,6 +44,109 @@ describe("App", () => {
     vi.clearAllMocks();
   });
 
+  it("does not show startup loading view when startup markdown file opens quickly", async () => {
+    getStartupArgs.mockResolvedValue(["path/to/app.exe", "path/to/fast-file.md"]);
+    readMarkdownFile.mockResolvedValue("# Loaded quickly");
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByRole("heading", { name: "Loaded quickly" })).toBeInTheDocument();
+    });
+
+    expect(screen.queryByRole("status", { name: "正在加载中" })).not.toBeInTheDocument();
+  });
+
+  it("shows a startup loading view while opening a large startup markdown file", async () => {
+    let resolveMarkdownRead: ((value: string) => void) | undefined;
+
+    getStartupArgs.mockResolvedValue(["path/to/app.exe", "path/to/large-file.md"]);
+    readMarkdownFile.mockImplementation(
+      () =>
+        new Promise<string>((resolve) => {
+          resolveMarkdownRead = resolve;
+        }),
+    );
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(readMarkdownFile).toHaveBeenCalledWith("path/to/large-file.md");
+    });
+    expect(screen.queryByRole("button", { name: "Open Folder" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("status", { name: "正在加载中" })).not.toBeInTheDocument();
+    expect(await screen.findByRole("status", { name: "正在加载中" })).toHaveTextContent("正在加载中......");
+
+    expect(resolveMarkdownRead).toBeDefined();
+    (resolveMarkdownRead as (value: string) => void)("# Loaded after delay");
+
+    await waitFor(() => {
+      expect(screen.getByRole("heading", { name: "Loaded after delay" })).toBeInTheDocument();
+    });
+  });
+
+  it("shows loading view while opening a large file from welcome screen", async () => {
+    let resolveMarkdownRead: ((value: string) => void) | undefined;
+
+    getStartupArgs.mockResolvedValue(["path/to/app.exe"]);
+    selectMarkdownFilePath.mockResolvedValue("path/to/huge-file.md");
+    readMarkdownFile.mockImplementation(
+      () =>
+        new Promise<string>((resolve) => {
+          resolveMarkdownRead = resolve;
+        }),
+    );
+
+    render(<App />);
+    screen.getByRole("button", { name: "Open File" }).click();
+
+    await waitFor(() => {
+      expect(readMarkdownFile).toHaveBeenCalledWith("path/to/huge-file.md");
+    });
+    expect(screen.queryByRole("button", { name: "Open Folder" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("status", { name: "正在加载中" })).not.toBeInTheDocument();
+    expect(await screen.findByRole("status", { name: "正在加载中" })).toHaveTextContent("正在加载中......");
+
+    expect(resolveMarkdownRead).toBeDefined();
+    (resolveMarkdownRead as (value: string) => void)("# Huge loaded");
+
+    await waitFor(() => {
+      expect(screen.getByRole("heading", { name: "Huge loaded" })).toBeInTheDocument();
+    });
+  });
+
+  it("switches away from welcome view before starting heavy file work", async () => {
+    let resolveMarkdownRead: ((value: string) => void) | undefined;
+
+    getStartupArgs.mockResolvedValue(["path/to/app.exe"]);
+    selectMarkdownFilePath.mockResolvedValue("path/to/heavy-file.md");
+    readMarkdownFile.mockImplementation(
+      () =>
+        new Promise<string>((resolve) => {
+          resolveMarkdownRead = resolve;
+        }),
+    );
+
+    render(<App />);
+    screen.getByRole("button", { name: "Open File" }).click();
+
+    await waitFor(() => {
+      expect(screen.queryByRole("button", { name: "Open Folder" })).not.toBeInTheDocument();
+    });
+    expect(screen.queryByRole("status", { name: "正在加载中" })).not.toBeInTheDocument();
+    expect(await screen.findByRole("status", { name: "正在加载中" })).toHaveTextContent("正在加载中......");
+
+    await waitFor(() => {
+      expect(readMarkdownFile).toHaveBeenCalledWith("path/to/heavy-file.md");
+    });
+    expect(resolveMarkdownRead).toBeDefined();
+    (resolveMarkdownRead as (value: string) => void)("# Opened after loading state");
+
+    await waitFor(() => {
+      expect(screen.getByRole("heading", { name: "Opened after loading state" })).toBeInTheDocument();
+    });
+  });
+
   it("opens a markdown file automatically if passed as a startup argument", async () => {
     getStartupArgs.mockResolvedValue(["path/to/app.exe", "path/to/my-file.md"]);
     readMarkdownFile.mockResolvedValue("# Hello from args");
@@ -62,5 +165,62 @@ describe("App", () => {
     });
     
     expect(screen.getByRole("textbox", { name: "WYSIWYG markdown editor" }).innerHTML).toContain("Hello from args");
+  });
+
+  it("opens the last opened markdown file when launched without a file argument", async () => {
+    window.localStorage.setItem("md-editor.last-opened-file", "path/to/last-file.md");
+    getStartupArgs.mockResolvedValue(["path/to/app.exe"]);
+    readMarkdownFile.mockResolvedValue("# Hello from last session");
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(readMarkdownFile).toHaveBeenCalledWith("path/to/last-file.md");
+    });
+
+    await waitFor(() => {
+      expect(screen.getByRole("textbox", { name: "WYSIWYG markdown editor" })).toBeInTheDocument();
+    });
+
+    expect(screen.getByRole("textbox", { name: "WYSIWYG markdown editor" }).innerHTML).toContain(
+      "Hello from last session",
+    );
+  });
+
+  it("falls back to the welcome view when the last opened file can no longer be read", async () => {
+    window.localStorage.setItem("md-editor.last-opened-file", "path/to/missing-file.md");
+    getStartupArgs.mockResolvedValue(["path/to/app.exe"]);
+    readMarkdownFile.mockRejectedValue(new Error("File not found"));
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(readMarkdownFile).toHaveBeenCalledWith("path/to/missing-file.md");
+    });
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Open Folder" })).toBeInTheDocument();
+    });
+
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(window.localStorage.getItem("md-editor.last-opened-file")).toBeNull();
+  });
+
+  it("opens very large markdown files in source mode by default", async () => {
+    const largeMarkdown = `# Large file\n\n${"paragraph ".repeat(25000)}`;
+
+    getStartupArgs.mockResolvedValue(["path/to/app.exe"]);
+    selectMarkdownFilePath.mockResolvedValue("path/to/large-file.md");
+    readMarkdownFile.mockResolvedValue(largeMarkdown);
+
+    render(<App />);
+    screen.getByRole("button", { name: "Open File" }).click();
+
+    await waitFor(() => {
+      expect(screen.getByRole("textbox", { name: "Markdown editor" })).toBeInTheDocument();
+    });
+
+    expect(screen.queryByRole("textbox", { name: "WYSIWYG markdown editor" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Preview edit mode" })).toBeInTheDocument();
   });
 });

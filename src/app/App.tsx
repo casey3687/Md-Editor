@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { startTransition, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useStore } from "zustand";
 
 import { AppShell } from "./AppShell";
@@ -17,11 +17,25 @@ import {
 } from "../lib/tauri/fs";
 import type {
   DirectoryNode,
+  EditorMode,
   EditorDocument,
   MarkdownFileEntry,
   PendingNavigation,
   SidebarTab,
 } from "../types/editor";
+
+const FILE_LOADING_INDICATOR_DELAY_MS = 180;
+const INITIAL_OUTLINE_REFRESH_DELAY_MS = 250;
+const LARGE_DOCUMENT_SOURCE_MODE_THRESHOLD = 200_000;
+const LAST_OPENED_FILE_STORAGE_KEY = "md-editor.last-opened-file";
+
+function waitForNextAnimationFrame() {
+  return new Promise<void>((resolve) => {
+    window.requestAnimationFrame(() => {
+      resolve();
+    });
+  });
+}
 
 function getDocumentName(path: string | null) {
   if (!path) {
@@ -32,8 +46,32 @@ function getDocumentName(path: string | null) {
   return parts.at(-1) ?? "Untitled.md";
 }
 
+function getInitialEditorMode(content: string): EditorMode {
+  return content.length >= LARGE_DOCUMENT_SOURCE_MODE_THRESHOLD ? "source" : "preview-edit";
+}
+
 function normalizePath(path: string) {
   return path.replace(/\\/g, "/");
+}
+
+function loadLastOpenedFilePath() {
+  const savedPath = window.localStorage.getItem(LAST_OPENED_FILE_STORAGE_KEY);
+  return savedPath && isMarkdownFile(savedPath) ? savedPath : null;
+}
+
+function saveLastOpenedFilePath(path: string) {
+  if (!isMarkdownFile(path)) {
+    return;
+  }
+
+  window.localStorage.setItem(LAST_OPENED_FILE_STORAGE_KEY, path);
+}
+
+function clearLastOpenedFilePath(path?: string | null) {
+  const savedPath = window.localStorage.getItem(LAST_OPENED_FILE_STORAGE_KEY);
+  if (!path || savedPath === path) {
+    window.localStorage.removeItem(LAST_OPENED_FILE_STORAGE_KEY);
+  }
 }
 
 function getRelativePath(path: string, workspacePath: string) {
@@ -68,14 +106,14 @@ function isPathWithinWorkspace(path: string, workspacePath: string) {
   return normalizedPath === normalizedWorkspace || normalizedPath.startsWith(`${normalizedWorkspace}/`);
 }
 
-function createEditorDocument(path: string | null, content: string): EditorDocument {
+function createEditorDocument(path: string | null, content: string, outline = [] as EditorDocument["outline"]): EditorDocument {
   return {
     path,
     name: getDocumentName(path),
     content,
     isDirty: false,
-    mode: "preview-edit",
-    outline: extractMarkdownOutline(content),
+    mode: getInitialEditorMode(content),
+    outline,
   };
 }
 
@@ -151,12 +189,18 @@ function normalizeScannedEntries(scanned: unknown, workspacePath: string): Markd
 export function App() {
   const editorStore = useMemo(() => createEditorStore(), []);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const [isDocumentOpening, setIsDocumentOpening] = useState(false);
+  const [showLoadingMessage, setShowLoadingMessage] = useState(false);
   const [outlineJump, setOutlineJump] = useState<{ line: number; token: number } | null>(null);
   const [surfaceScrollRatio, setSurfaceScrollRatio] = useState(0);
   const [surfaceScrollToken, setSurfaceScrollToken] = useState<number | null>(null);
   const [viewportRange, setViewportRange] = useState<{ startLine: number; endLine: number } | null>(null);
   const [activeOutlineId, setActiveOutlineId] = useState<string | null>(null);
   const clearStatusTimerRef = useRef<number | null>(null);
+  const loadingIndicatorTimerRef = useRef<number | null>(null);
+  const loadingIndicatorTokenRef = useRef(0);
+  const outlineRefreshTimerRef = useRef<number | null>(null);
+  const outlineRefreshTokenRef = useRef(0);
 
   const workspacePath = useStore(editorStore, (state) => state.workspacePath);
   const fileEntries = useStore(editorStore, (state) => state.fileEntries);
@@ -177,23 +221,126 @@ export function App() {
       if (clearStatusTimerRef.current !== null) {
         window.clearTimeout(clearStatusTimerRef.current);
       }
+
+      if (loadingIndicatorTimerRef.current !== null) {
+        window.clearTimeout(loadingIndicatorTimerRef.current);
+      }
+
+      if (outlineRefreshTimerRef.current !== null) {
+        window.clearTimeout(outlineRefreshTimerRef.current);
+      }
     };
   }, []);
 
+  const scheduleOutlineRefresh = (path: string | null, content: string, delayMs = 0) => {
+    outlineRefreshTokenRef.current += 1;
+    const currentToken = outlineRefreshTokenRef.current;
+
+    if (outlineRefreshTimerRef.current !== null) {
+      window.clearTimeout(outlineRefreshTimerRef.current);
+    }
+
+    outlineRefreshTimerRef.current = window.setTimeout(() => {
+      outlineRefreshTimerRef.current = null;
+      const outline = extractMarkdownOutline(content);
+      const state = editorStore.getState();
+      const activeDocumentState = state.activeDocument;
+
+      if (outlineRefreshTokenRef.current !== currentToken || !activeDocumentState) {
+        return;
+      }
+
+      if (activeDocumentState.path !== path || activeDocumentState.content !== content) {
+        return;
+      }
+
+      startTransition(() => {
+        state.setOutline(outline);
+      });
+    }, delayMs);
+  };
+
+  const startDelayedLoadingMessage = () => {
+    loadingIndicatorTokenRef.current += 1;
+    const currentToken = loadingIndicatorTokenRef.current;
+
+    if (loadingIndicatorTimerRef.current !== null) {
+      window.clearTimeout(loadingIndicatorTimerRef.current);
+    }
+
+    loadingIndicatorTimerRef.current = window.setTimeout(() => {
+      if (loadingIndicatorTokenRef.current !== currentToken) {
+        return;
+      }
+
+      setShowLoadingMessage(true);
+    }, FILE_LOADING_INDICATOR_DELAY_MS);
+
+    return currentToken;
+  };
+
+  const clearLoadingMessage = (token: number) => {
+    if (loadingIndicatorTokenRef.current !== token) {
+      return;
+    }
+
+    if (loadingIndicatorTimerRef.current !== null) {
+      window.clearTimeout(loadingIndicatorTimerRef.current);
+      loadingIndicatorTimerRef.current = null;
+    }
+
+    setShowLoadingMessage(false);
+  };
+
+  const loadDocumentWithIndicator = async (path: string) => {
+    const token = startDelayedLoadingMessage();
+    const state = editorStore.getState();
+    const transitioningFromWelcome = !state.workspacePath && !state.activeDocument;
+
+    setIsDocumentOpening(true);
+
+    if (transitioningFromWelcome) {
+      await waitForNextAnimationFrame();
+    }
+
+    try {
+      await loadDocument(path);
+    } finally {
+      clearLoadingMessage(token);
+      setIsDocumentOpening(false);
+    }
+  };
+
   useEffect(() => {
-    getStartupArgs()
-      .then((args) => {
+    const openStartupFileFromArgs = async () => {
+      try {
         // Typically the first argument is the executable path, and subsequent arguments are passed files/flags.
         // We look for the first valid markdown file path.
-        const targetPath = args.find((arg) => isMarkdownFile(arg));
-        if (targetPath) {
-          handleSelectFile(targetPath);
+        const args = await getStartupArgs();
+        const targetPath = args.find((arg) => isMarkdownFile(arg)) ?? loadLastOpenedFilePath();
+        if (!targetPath) {
+          return;
         }
-      })
-      .catch((error) => {
+
+        try {
+          await loadDocumentWithIndicator(targetPath);
+          editorStore.getState().clearError();
+        } catch (error) {
+          if (!args.find((arg) => isMarkdownFile(arg))) {
+            clearLastOpenedFilePath(targetPath);
+            console.warn("Failed to reopen last opened markdown file:", error);
+            return;
+          }
+
+          throw error;
+        }
+      } catch (error) {
         console.error("Failed to read startup arguments:", error);
-      });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+      }
+    };
+
+    void openStartupFileFromArgs();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const showSavedStatus = (path: string) => {
@@ -254,6 +401,8 @@ export function App() {
   const loadDocument = async (path: string) => {
     const content = await readMarkdownFile(path);
     editorStore.getState().setActiveDocument(createEditorDocument(path, content));
+    saveLastOpenedFilePath(path);
+    scheduleOutlineRefresh(path, content, INITIAL_OUTLINE_REFRESH_DELAY_MS);
   };
 
   const createNewDocument = () => {
@@ -277,7 +426,7 @@ export function App() {
 
   const handleSelectFile = async (path: string) => {
     try {
-      await loadDocument(path);
+      await loadDocumentWithIndicator(path);
       editorStore.getState().clearError();
     } catch (error) {
       editorStore.getState().setError(error instanceof Error ? error.message : "Failed to open file");
@@ -291,7 +440,7 @@ export function App() {
         return;
       }
 
-      await loadDocument(filePath);
+      await loadDocumentWithIndicator(filePath);
       editorStore.getState().clearError();
     } catch (error) {
       editorStore.getState().setError(error instanceof Error ? error.message : "Failed to open file");
@@ -316,6 +465,7 @@ export function App() {
       name: getDocumentName(nextPath),
       isDirty: false,
     });
+    saveLastOpenedFilePath(nextPath);
     const nextWorkspacePath =
       currentWorkspacePath && isPathWithinWorkspace(nextPath, currentWorkspacePath)
         ? currentWorkspacePath
@@ -537,7 +687,7 @@ export function App() {
   const handleContentChange = (content: string) => {
     const state = editorStore.getState();
     state.updateContent(content);
-    state.setOutline(extractMarkdownOutline(content));
+    scheduleOutlineRefresh(state.activeDocument?.path ?? null, content, 120);
   };
 
   return (
@@ -549,6 +699,8 @@ export function App() {
       pendingNavigation={pendingNavigation}
       errorMessage={errorMessage}
       statusMessage={statusMessage}
+      isDocumentOpening={isDocumentOpening}
+      showLoadingMessage={showLoadingMessage}
       outlineJump={outlineJump}
       onNewFile={createNewDocument}
       onOpenFile={handleOpenFile}
