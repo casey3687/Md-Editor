@@ -11,7 +11,7 @@
 -   桌面应用壳使用 Tauri 2  
 
 ## 直接使用
--   下载 .\src-tauri\target\release\md-editor.exe 文件直接使用
+-   下载 .\src-tauri\target\release\md-editor.exe 文件或者release中的文件直接使用
 
 ##   
 
