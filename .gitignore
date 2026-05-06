@@ -13,6 +13,7 @@ worktrees/
 .superpowers/
 .ccb/
 AGENTS.md
+docs/
 
 *.db
 *.sqlite
