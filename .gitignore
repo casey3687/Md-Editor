@@ -11,6 +11,8 @@ src-tauri/gen/
 worktrees
 worktrees/
 .superpowers/
+.ccb/
+AGENTS.md
 
 *.db
 *.sqlite
