@@ -18,3 +18,6 @@ docs/
 *.db
 *.sqlite
 *.sqlite3
+.omo/
+/build.bat
+/postgresql-*.exe

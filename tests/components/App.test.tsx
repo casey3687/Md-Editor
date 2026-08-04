@@ -12,6 +12,8 @@ const {
   selectMarkdownFilePath,
   selectSaveMarkdownPath,
   getStartupArgs,
+  setWindowTheme,
+  setWindowTitle,
 } = vi.hoisted(() => ({
   scanFolder: vi.fn(),
   readMarkdownFile: vi.fn(),
@@ -20,6 +22,15 @@ const {
   selectMarkdownFilePath: vi.fn(),
   selectSaveMarkdownPath: vi.fn(),
   getStartupArgs: vi.fn(),
+  setWindowTheme: vi.fn().mockResolvedValue(undefined),
+  setWindowTitle: vi.fn().mockResolvedValue(undefined),
+}));
+
+vi.mock("@tauri-apps/api/window", () => ({
+  getCurrentWindow: () => ({
+    setTheme: setWindowTheme,
+    setTitle: setWindowTitle,
+  }),
 }));
 
 vi.mock("../../src/lib/tauri/fs", () => ({
@@ -42,6 +53,7 @@ vi.mock("@uiw/react-codemirror", () => ({
 describe("App", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    window.localStorage.clear();
   });
 
   it("does not show startup loading view when startup markdown file opens quickly", async () => {
@@ -167,10 +179,42 @@ describe("App", () => {
     expect(screen.getByRole("textbox", { name: "WYSIWYG markdown editor" }).innerHTML).toContain("Hello from args");
   });
 
-  it("opens the last opened markdown file when launched without a file argument", async () => {
+  it("opens a renamed binary markdown file directly in the source editor", async () => {
+    const decodedBinary = "PK\u0003\u0004\uFFFDworkbook";
+    getStartupArgs.mockResolvedValue(["path/to/app.exe", "path/to/renamed-workbook.md"]);
+    readMarkdownFile.mockResolvedValue(decodedBinary);
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByRole("textbox", { name: "Markdown editor" })).toHaveValue(decodedBinary);
+    });
+
+    expect(screen.queryByRole("textbox", { name: "WYSIWYG markdown editor" })).not.toBeInTheDocument();
+  });
+
+  it("shows the outline tab by default when launched from a markdown file argument", async () => {
+    getStartupArgs.mockResolvedValue(["path/to/app.exe", "path/to/my-file.md"]);
+    readMarkdownFile.mockResolvedValue("# Hello from args\n\n## Details");
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByRole("heading", { name: "Hello from args" })).toBeInTheDocument();
+    });
+
+    await waitFor(() => {
+      expect(screen.getByRole("tab", { name: "Outline" })).toHaveAttribute("aria-selected", "true");
+    });
+    expect(await screen.findByRole("button", { name: "Hello from args" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Details" })).toBeInTheDocument();
+  });
+
+  it("opens the last opened large markdown file in source mode when launched without a file argument", async () => {
+    const largeMarkdown = `# Hello from last session\n\n${"paragraph ".repeat(25000)}`;
     window.localStorage.setItem("md-editor.last-opened-file", "path/to/last-file.md");
     getStartupArgs.mockResolvedValue(["path/to/app.exe"]);
-    readMarkdownFile.mockResolvedValue("# Hello from last session");
+    readMarkdownFile.mockResolvedValue(largeMarkdown);
 
     render(<App />);
 
@@ -179,12 +223,12 @@ describe("App", () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByRole("textbox", { name: "WYSIWYG markdown editor" })).toBeInTheDocument();
+      expect(screen.getByRole("textbox", { name: "Markdown editor" })).toHaveValue(largeMarkdown);
     });
 
-    expect(screen.getByRole("textbox", { name: "WYSIWYG markdown editor" }).innerHTML).toContain(
-      "Hello from last session",
-    );
+    expect(screen.getByRole("button", { name: "源码模式" })).toBeInTheDocument();
+    expect(screen.queryByRole("textbox", { name: "WYSIWYG markdown editor" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "展开侧边栏" })).not.toBeInTheDocument();
   });
 
   it("falls back to the welcome view when the last opened file can no longer be read", async () => {
@@ -217,10 +261,50 @@ describe("App", () => {
     screen.getByRole("button", { name: "Open File" }).click();
 
     await waitFor(() => {
-      expect(screen.getByRole("textbox", { name: "Markdown editor" })).toBeInTheDocument();
+      expect(screen.getByRole("textbox", { name: "Markdown editor" })).toHaveValue(largeMarkdown);
     });
 
     expect(screen.queryByRole("textbox", { name: "WYSIWYG markdown editor" })).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Preview edit mode" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "源码模式" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "展开侧边栏" })).not.toBeInTheDocument();
+  });
+
+  it("shows saved status without waiting for a workspace rescan", async () => {
+    const entry = {
+      path: "C:/workspace/doc.md",
+      relativePath: "doc.md",
+      name: "doc.md",
+      directoryLabel: ".",
+      excerpt: null,
+      modifiedAt: null,
+    };
+
+    getStartupArgs.mockResolvedValue(["path/to/app.exe"]);
+    selectFolderPath.mockResolvedValue("C:/workspace");
+    scanFolder
+      .mockResolvedValueOnce([entry])
+      .mockImplementationOnce(() => new Promise(() => undefined));
+    readMarkdownFile.mockResolvedValue("# Doc");
+    saveMarkdownFile.mockResolvedValue(undefined);
+
+    render(<App />);
+    screen.getByRole("button", { name: "Open Folder" }).click();
+
+    await waitFor(() => {
+      expect(screen.getByText("doc.md")).toBeInTheDocument();
+    });
+
+    screen.getByText("doc.md").closest("button")?.click();
+
+    await waitFor(() => {
+      expect(screen.getByRole("heading", { name: "Doc" })).toBeInTheDocument();
+    });
+
+    screen.getByRole("button", { name: "Save" }).click();
+
+    await waitFor(() => {
+      expect(saveMarkdownFile).toHaveBeenCalledWith("C:/workspace/doc.md", "# Doc");
+      expect(screen.getByText("Saved doc.md")).toBeInTheDocument();
+    });
   });
 });

@@ -47,7 +47,9 @@ function getDocumentName(path: string | null) {
 }
 
 function getInitialEditorMode(content: string): EditorMode {
-  return content.length >= LARGE_DOCUMENT_SOURCE_MODE_THRESHOLD ? "source" : "preview-edit";
+  return content.length >= LARGE_DOCUMENT_SOURCE_MODE_THRESHOLD || content.includes("\uFFFD")
+    ? "source"
+    : "preview-edit";
 }
 
 function normalizePath(path: string) {
@@ -98,6 +100,24 @@ function getParentDirectory(path: string) {
   }
 
   return normalizedPath.slice(0, lastSlashIndex) || null;
+}
+
+function getDirectoryLabel(path: string) {
+  return getParentDirectory(path) ?? ".";
+}
+
+function getExcerpt(content: string) {
+  const firstContentLine = content
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .find((line) => line.length > 0);
+
+  if (!firstContentLine) {
+    return null;
+  }
+
+  const excerpt = [...firstContentLine].slice(0, 180).join("");
+  return firstContentLine.length > excerpt.length ? `${excerpt}...` : excerpt;
 }
 
 function isPathWithinWorkspace(path: string, workspacePath: string) {
@@ -201,6 +221,7 @@ export function App() {
   const loadingIndicatorTokenRef = useRef(0);
   const outlineRefreshTimerRef = useRef<number | null>(null);
   const outlineRefreshTokenRef = useRef(0);
+  const currentViewportLineRef = useRef<number | null>(null);
 
   const workspacePath = useStore(editorStore, (state) => state.workspacePath);
   const fileEntries = useStore(editorStore, (state) => state.fileEntries);
@@ -211,7 +232,22 @@ export function App() {
   const toggleEditorMode = useStore(editorStore, (state) => state.toggleEditorMode);
 
   const handleToggleEditorMode = () => {
-    setSurfaceScrollToken(Date.now());
+    const token = Date.now();
+    const viewportLine = currentViewportLineRef.current;
+
+
+    if (viewportLine === null) {
+      setSurfaceScrollToken(token);
+    } else {
+      setSurfaceScrollToken(null);
+    }
+
+    if (currentViewportLineRef.current !== null) {
+      setOutlineJump({
+        line: currentViewportLineRef.current,
+        token,
+      });
+    }
     setViewportRange(null);
     toggleEditorMode();
   };
@@ -305,6 +341,7 @@ export function App() {
 
     try {
       await loadDocument(path);
+      editorStore.getState().setSidebarTab("outline");
     } finally {
       clearLoadingMessage(token);
       setIsDocumentOpening(false);
@@ -398,6 +435,40 @@ export function App() {
     state.setActiveDocument(null);
   };
 
+  const updateWorkspaceEntryAfterSave = (path: string, content: string) => {
+    const state = editorStore.getState();
+    const currentWorkspacePath = state.workspacePath;
+    const parentDirectory = getParentDirectory(path);
+    const nextWorkspacePath =
+      currentWorkspacePath && isPathWithinWorkspace(path, currentWorkspacePath)
+        ? currentWorkspacePath
+        : parentDirectory;
+
+    if (!nextWorkspacePath) {
+      return;
+    }
+
+    const relativePath = getRelativePath(path, nextWorkspacePath);
+    const normalizedPath = normalizePath(path);
+    const nextEntry: MarkdownFileEntry = {
+      path,
+      relativePath,
+      name: getDocumentName(path),
+      directoryLabel: getDirectoryLabel(relativePath),
+      excerpt: getExcerpt(content),
+      modifiedAt: Date.now(),
+    };
+    const existingEntries = nextWorkspacePath === currentWorkspacePath ? state.fileEntries : [];
+    const nextEntries = [...existingEntries.filter((entry) => normalizePath(entry.path) !== normalizedPath), nextEntry].sort(
+      (left, right) => left.relativePath.localeCompare(right.relativePath),
+    );
+
+    editorStore.setState({
+      workspacePath: nextWorkspacePath,
+      fileEntries: nextEntries,
+    });
+  };
+
   const loadDocument = async (path: string) => {
     const content = await readMarkdownFile(path);
     editorStore.getState().setActiveDocument(createEditorDocument(path, content));
@@ -418,6 +489,7 @@ export function App() {
 
       await refreshWorkspaceFiles(folderPath);
       syncActiveDocumentWithWorkspace(folderPath);
+      editorStore.getState().setSidebarTab("files");
       editorStore.getState().clearError();
     } catch (error) {
       editorStore.getState().setError(error instanceof Error ? error.message : "Failed to open folder");
@@ -448,7 +520,6 @@ export function App() {
   };
 
   const saveDocument = async (document: EditorDocument, pathOverride?: string): Promise<string | null> => {
-    const currentWorkspacePath = editorStore.getState().workspacePath;
     const nextPath =
       pathOverride ??
       document.path ??
@@ -466,12 +537,7 @@ export function App() {
       isDirty: false,
     });
     saveLastOpenedFilePath(nextPath);
-    const nextWorkspacePath =
-      currentWorkspacePath && isPathWithinWorkspace(nextPath, currentWorkspacePath)
-        ? currentWorkspacePath
-        : getParentDirectory(nextPath) ?? currentWorkspacePath;
-
-    await refreshWorkspaceFiles(nextWorkspacePath);
+    updateWorkspaceEntryAfterSave(nextPath, document.content);
     return nextPath;
   };
 
@@ -620,6 +686,8 @@ export function App() {
   }, []);
 
   const handleViewportLineChange = useCallback((line: number) => {
+    const normalizedLine = Math.max(1, line);
+    currentViewportLineRef.current = normalizedLine;
     const state = editorStore.getState();
     const outline = state.activeDocument?.outline ?? [];
 

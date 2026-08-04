@@ -1,4 +1,4 @@
-import { useId, useLayoutEffect, useMemo, useRef, useState } from "react";
+﻿import { useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { OutlineItem } from "../../types/editor";
 import styles from "./WorkspaceSidebar.module.css";
 

@@ -5,14 +5,57 @@
   min-width: 18rem;
   min-height: 0;
   padding: 1rem;
-  border-right: 2px solid #dbe4f0;
-  background: #ffffff;
+  border: 2px solid var(--sidebar-border);
+  border-radius: 0.75rem;
+  background: var(--sidebar-bg);
   overflow: hidden;
+}
+
+.sidebarCollapsed {
+  min-width: 3.25rem;
+  width: 3.25rem;
+  padding: 0.75rem 0.5rem;
+  align-items: center;
+}
+
+.collapseButton {
+  display: inline-grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  margin-left: auto;
+  padding: 0;
+  border: 1.5px solid transparent;
+  border-radius: 0.4rem;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  line-height: 1;
+  transition:
+    border-color 160ms ease,
+    background 160ms ease,
+    color 160ms ease;
+}
+
+.collapseButton:hover {
+  border-color: var(--sidebar-border);
+  background: var(--sidebar-card-bg);
+  color: var(--text-main);
+}
+
+.collapseButton:active {
+  background: var(--surface-muted);
+}
+
+.collapseButton svg {
+  width: 1.125rem;
+  height: 1.125rem;
+  transition: transform 200ms ease;
 }
 
 .workspaceLabel {
   margin: 0;
-  color: #64748b;
+  color: var(--text-muted);
   font-size: 0.875rem;
 }
 
@@ -20,7 +63,7 @@
   display: flex;
   gap: 1.1rem;
   align-items: flex-end;
-  border-bottom: 2px solid #dbe4f0;
+  border-bottom: 2px solid var(--sidebar-border);
   padding-bottom: 0.1rem;
 }
 
@@ -29,15 +72,15 @@
   border-bottom: 4px solid transparent;
   border-radius: 0;
   background: transparent;
-  color: #334155;
+  color: var(--text-secondary);
   padding: 0.45rem 0.15rem 0.55rem;
   min-width: 4.25rem;
   cursor: pointer;
 }
 
 .tabActive {
-  border-bottom-color: #1f2937;
-  color: #111827;
+  border-bottom-color: var(--text-main);
+  color: var(--text-main);
   font-weight: 700;
 }
 
@@ -78,10 +121,10 @@
 }
 
 .card {
-  border: 2px solid #dbe4f0;
+  border: 2px solid var(--sidebar-border);
   border-radius: 0.875rem;
-  background: #f8fafc;
-  color: #0f172a;
+  background: var(--sidebar-card-bg);
+  color: var(--text-main);
   padding: 0.75rem 0.875rem;
 }
 
@@ -92,7 +135,7 @@
 
 .cardActive {
   border-color: #2563eb;
-  background: #eff6ff;
+  background: var(--sidebar-card-active-bg);
 }
 
 .outlineSearch {
@@ -104,10 +147,10 @@
 
 .searchInput {
   width: 100%;
-  border: 2px solid #d6dee8;
+  border: 2px solid var(--sidebar-border);
   border-radius: 0.15rem;
-  background: #ffffff;
-  color: #1f2937;
+  background: var(--surface-strong);
+  color: var(--text-main);
   padding: 0.5rem 0.55rem;
 }
 
@@ -120,7 +163,7 @@
 .clearSearchButton {
   border: 0;
   background: transparent;
-  color: #6b7280;
+  color: var(--text-muted);
   padding: 0.1rem 0.2rem;
   font-size: 1.6rem;
   line-height: 1;
@@ -128,7 +171,7 @@
 }
 
 .clearSearchButton:hover {
-  color: #111827;
+  color: var(--text-main);
 }
 
 .outlineNav {
@@ -155,26 +198,26 @@
   border-left: 4px solid transparent;
   border-radius: 0.35rem;
   background: transparent;
-  color: #334155;
+  color: var(--text-secondary);
   padding: 0.3rem 0.5rem 0.3rem 0.75rem;
   font-size: 0.95rem;
   line-height: 1.45;
 }
 
 .outlineButton:hover {
-  background: rgba(241, 245, 249, 0.95);
-  color: #0f172a;
+  background: var(--surface-muted);
+  color: var(--text-main);
 }
 
 .outlineButtonInViewport {
-  background: rgba(226, 232, 240, 0.72);
-  color: #0f172a;
+  background: var(--surface-muted);
+  color: var(--text-main);
 }
 
 .outlineButtonActive {
   border-left-color: #1d4ed8;
-  background: rgba(239, 246, 255, 0.95);
-  color: #0f172a;
+  background: var(--sidebar-card-active-bg);
+  color: var(--text-main);
   font-weight: 700;
 }
 
@@ -183,16 +226,16 @@
 }
 
 .cardDirectory {
-  color: #64748b;
+  color: var(--text-muted);
   font-size: 0.8125rem;
 }
 
 .emptyState {
   margin: 0;
-  border: 2px dashed #cbd5e1;
+  border: 2px dashed var(--sidebar-border);
   border-radius: 0.875rem;
-  background: #f8fafc;
-  color: #64748b;
+  background: var(--sidebar-empty-bg);
+  color: var(--text-muted);
   padding: 0.875rem;
 }
 

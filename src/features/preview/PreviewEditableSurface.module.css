@@ -1,21 +1,29 @@
-.surface {
+.surfaceHost {
+  position: relative;
+  display: flex;
   flex: 1;
   min-height: 0;
-  overflow: auto;
+  min-width: 0;
+  overflow: hidden;
   border: 2px solid var(--surface-border);
   border-radius: 1rem;
   background: var(--surface-strong);
+}
+
+.surface {
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  overflow: auto;
+  border: 0;
+  border-radius: calc(1rem - 2px);
+  background: transparent;
   padding: 1rem 1rem 1.15rem;
   color: var(--text-main);
-  font-size: 1rem;
+  font-size: var(--editor-font-size);
   line-height: 1.72;
   outline: none;
   word-break: break-word;
-}
-
-.surface:focus {
-  border-color: rgba(29, 78, 216, 0.32);
-  box-shadow: 0 0 0 2px rgba(29, 78, 216, 0.18);
 }
 
 .surface:empty::before {
@@ -36,15 +44,15 @@
 }
 
 .surface :global(h1) {
-  font-size: clamp(2rem, 3vw, 2.6rem);
+  font-size: 2.25em;
 }
 
 .surface :global(h2) {
-  font-size: clamp(1.55rem, 2.2vw, 2rem);
+  font-size: 1.75em;
 }
 
 .surface :global(h3) {
-  font-size: 1.35rem;
+  font-size: 1.35em;
 }
 
 .surface :global(p),
@@ -59,20 +67,20 @@
 .surface :global(blockquote) {
   margin-bottom: 0.65rem;
   padding: 0 0 0 0.9rem;
-  border-left: 5px solid rgba(203, 213, 225, 0.96);
-  color: #64748b;
+  border-left: 5px solid var(--preview-quote-border);
+  color: var(--preview-quote-text);
   background: transparent;
   border-radius: 0;
 }
 
 .surface :global(blockquote blockquote) {
   margin-top: 0.55rem;
-  border-left-color: rgba(219, 228, 240, 1);
+  border-left-color: var(--preview-quote-nested-border);
 }
 
 .surface :global(hr) {
   border: 0;
-  border-top: 2px solid rgba(148, 163, 184, 0.42);
+  border-top: 2px solid var(--preview-rule);
   margin: 0.5rem 0;
 }
 
@@ -93,8 +101,8 @@
 
 .surface :global(code) {
   border-radius: 0.4rem;
-  background: rgba(241, 245, 249, 0.95);
-  color: #0f172a;
+  background: var(--inline-code-bg);
+  color: var(--inline-code-text);
   padding: 0.14rem 0.35rem;
   font-size: 0.92em;
 }
@@ -103,15 +111,15 @@
   position: relative;
   margin: 0 0 1rem;
   overflow: auto;
-  border: 2px solid rgba(15, 23, 42, 0.32);
+  border: 2px solid var(--code-border);
   border-radius: 0.9rem;
-  background: #0f172a;
-  color: #e2e8f0;
+  background: var(--code-block-bg);
+  color: var(--code-block-text);
   padding: 1rem;
 }
 
 .surface :global(pre[data-language]) {
-  padding-top: 2rem;
+  padding-top: 2.75rem;
 }
 
 .surface :global(pre[data-language]::before) {
@@ -121,12 +129,48 @@
   left: 0;
   right: 0;
   border-bottom: 2px solid rgba(148, 163, 184, 0.35);
-  background: #111827;
-  color: #cbd5e1;
-  padding: 0.42rem 0.75rem;
-  font-size: 0.72rem;
+  background: var(--code-header-bg);
+  color: var(--code-header-text);
+  padding: 0.62rem 0.95rem;
+  font-size: 0.92rem;
+  line-height: 1.25;
   letter-spacing: 0.02em;
   text-transform: uppercase;
+}
+
+.copyCodeButton {
+  position: absolute;
+  top: 0.32rem;
+  right: 0.6rem;
+  z-index: 2;
+  border: 1px solid var(--copy-button-border);
+  border-radius: 0.45rem;
+  background: var(--copy-button-bg);
+  color: var(--copy-button-text);
+  padding: 0.32rem 0.66rem;
+  font-size: 0.88rem;
+  line-height: 1.2;
+  cursor: pointer;
+}
+
+.copyCodeButton:hover {
+  border-color: var(--copy-button-hover-border);
+  color: var(--copy-button-hover-text);
+}
+
+.copyToast {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  z-index: 30;
+  border: 1px solid rgba(34, 197, 94, 0.42);
+  border-radius: 0.55rem;
+  background: rgba(22, 101, 52, 0.94);
+  color: #f0fdf4;
+  padding: 0.48rem 0.75rem;
+  font-size: 0.86rem;
+  line-height: 1.2;
+  box-shadow: 0 14px 32px rgba(15, 23, 42, 0.22);
 }
 
 .surface :global(pre code) {
@@ -142,15 +186,30 @@
 
 .surface :global(th),
 .surface :global(td) {
-  border: 2px solid rgba(148, 163, 184, 0.4);
+  border: 2px solid var(--preview-table-border);
   padding: 0.65rem 0.75rem;
   text-align: left;
+}
+
+.surface :global(th) {
+  background: var(--preview-table-header-bg);
 }
 
 .surface :global(input[type="checkbox"]) {
   margin-right: 0.45rem;
   transform: scale(1.12);
   accent-color: #2563eb;
+}
+
+.responsiveImage {
+  display: block;
+  max-width: 100%;
+  max-height: calc(100vh - 14rem);
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  box-sizing: border-box;
+  border-radius: 0.9rem;
 }
 
 .surface :global(ul),

@@ -7,6 +7,13 @@ const { readMarkdownFile, selectMarkdownFilePath, getStartupArgs } = vi.hoisted(
   getStartupArgs: vi.fn(),
 }));
 
+vi.mock("@tauri-apps/api/window", () => ({
+  getCurrentWindow: () => ({
+    setTheme: vi.fn().mockResolvedValue(undefined),
+    setTitle: vi.fn().mockResolvedValue(undefined),
+  }),
+}));
+
 vi.mock("../../src/lib/tauri/fs", () => ({
   scanFolder: vi.fn(),
   readMarkdownFile,
@@ -61,7 +68,7 @@ describe("App open performance", () => {
     screen.getByRole("button", { name: "Open File" }).click();
 
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: "Source mode" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "预览模式" })).toBeInTheDocument();
     });
 
     expect(performance.now() - startedAt).toBeLessThan(300);

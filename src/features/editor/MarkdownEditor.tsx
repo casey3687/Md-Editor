@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import CodeMirror from "@uiw/react-codemirror";
 import { markdown } from "@codemirror/lang-markdown";
 import { EditorView } from "@codemirror/view";
@@ -21,6 +21,35 @@ type WheelLikeEvent = WheelEvent & {
   wheelDelta?: number;
   detail?: number;
 };
+
+type SourceEditorView = EditorView & {
+  documentTop?: number;
+  lineBlockAtHeight?: (height: number) => { from: number };
+};
+
+function getDocumentHeightAtScrollerTop(view: SourceEditorView, scroller: HTMLElement) {
+  const documentTop = Number(view.documentTop);
+  if (!Number.isFinite(documentTop)) {
+    return scroller.scrollTop;
+  }
+
+  const scrollerTop = scroller.getBoundingClientRect().top;
+  return Math.max(0, scrollerTop - documentTop);
+}
+
+function getLineAtDocumentHeight(view: SourceEditorView, height: number) {
+  if (typeof view.lineBlockAtHeight !== "function") {
+    return null;
+  }
+
+  const block = view.lineBlockAtHeight(height);
+  const position = Number(block?.from);
+  if (!Number.isFinite(position)) {
+    return null;
+  }
+
+  return view.state.doc.lineAt(position).number;
+}
 
 function wheelDeltaToPixels(event: WheelLikeEvent, scroller: HTMLElement): number {
   const rawDeltaY = Number(event.deltaY);
@@ -79,9 +108,19 @@ export function MarkdownEditor({
   const scrollFrameRef = useRef<number | null>(null);
   const lastViewportRef = useRef<{ topLine: number; bottomLine: number } | null>(null);
   const lastRatioRef = useRef<number | null>(null);
+  const restoringScrollTokenRef = useRef<number | null>(null);
+  const pendingJumpRef = useRef<{ line: number; token: number } | null>(null);
+  const pendingJumpReleaseTimeoutRef = useRef<number | null>(null);
+  const lastJumpTokenRef = useRef<number | null>(null);
+  const contentRef = useRef(content);
+  const markdownExtensions = useMemo(() => [markdown(), EditorView.lineWrapping], []);
 
   useEffect(() => {
-    const view = editorView;
+    contentRef.current = content;
+  }, [content]);
+
+  useEffect(() => {
+    const view = editorView as SourceEditorView | null;
     const scroller = view?.scrollDOM ?? null;
     const host = hostRef.current;
     if (!scroller || !view) {
@@ -181,7 +220,10 @@ export function MarkdownEditor({
       scrollFrameRef.current = null;
       const maxScrollTop = scroller.scrollHeight - scroller.clientHeight;
       const ratio = maxScrollTop <= 0 ? 0 : scroller.scrollTop / maxScrollTop;
-      if (lastRatioRef.current === null || Math.abs(lastRatioRef.current - ratio) > 0.001) {
+      if (
+        restoringScrollTokenRef.current === null &&
+        (lastRatioRef.current === null || Math.abs(lastRatioRef.current - ratio) > 0.001)
+      ) {
         lastRatioRef.current = ratio;
         onScrollRatioChange?.(ratio);
       }
@@ -189,8 +231,16 @@ export function MarkdownEditor({
       const viewportFrom = Number(view.viewport.from) || 1;
       const viewportTo = Number(view.viewport.to) || viewportFrom;
       const bottomPosition = Math.max(viewportFrom, viewportTo - 1);
-      const topLine = view.state.doc.lineAt(viewportFrom).number;
-      const bottomLine = view.state.doc.lineAt(bottomPosition).number;
+      const topDocumentHeight = getDocumentHeightAtScrollerTop(view, scroller);
+      const bottomDocumentHeight = topDocumentHeight + scroller.clientHeight;
+      const topLine = getLineAtDocumentHeight(view, topDocumentHeight) ?? view.state.doc.lineAt(viewportFrom).number;
+      const bottomLine =
+        getLineAtDocumentHeight(view, bottomDocumentHeight) ?? view.state.doc.lineAt(bottomPosition).number;
+      const pendingJump = pendingJumpRef.current;
+
+      if (pendingJump && pendingJump.line !== topLine) {
+        return;
+      }
 
       if (
         !lastViewportRef.current ||
@@ -226,7 +276,7 @@ export function MarkdownEditor({
       scroller.removeEventListener("DOMMouseScroll", handleWheel);
       scroller.removeEventListener("scroll", scheduleScrollState);
     };
-  }, [editorView, onScrollRatioChange, onViewportLineChange, onViewportRangeChange, content]);
+  }, [editorView, onScrollRatioChange, onViewportLineChange, onViewportRangeChange]);
 
   useEffect(() => {
     const scroller = editorView?.scrollDOM ?? null;
@@ -234,14 +284,34 @@ export function MarkdownEditor({
       return;
     }
 
+    restoringScrollTokenRef.current = scrollToken;
+
     const applyScroll = () => {
       const maxScrollTop = scroller.scrollHeight - scroller.clientHeight;
       scroller.scrollTop = Math.max(0, Math.min(maxScrollTop, maxScrollTop * scrollRatio));
     };
 
     applyScroll();
-    const raf = window.requestAnimationFrame(applyScroll);
-    return () => window.cancelAnimationFrame(raf);
+    let releaseRaf: number | null = null;
+    const restoreRaf = window.requestAnimationFrame(() => {
+      applyScroll();
+      releaseRaf = window.requestAnimationFrame(() => {
+        if (restoringScrollTokenRef.current === scrollToken) {
+          restoringScrollTokenRef.current = null;
+          lastRatioRef.current = scrollRatio;
+        }
+      });
+    });
+
+    return () => {
+      window.cancelAnimationFrame(restoreRaf);
+      if (releaseRaf !== null) {
+        window.cancelAnimationFrame(releaseRaf);
+      }
+      if (restoringScrollTokenRef.current === scrollToken) {
+        restoringScrollTokenRef.current = null;
+      }
+    };
   }, [editorView, scrollRatio, scrollToken]);
 
   useEffect(() => {
@@ -249,18 +319,47 @@ export function MarkdownEditor({
       return;
     }
 
+    if (lastJumpTokenRef.current === jumpToken) {
+      return;
+    }
+
     const { state } = editorView;
     const boundedLine = Math.max(1, Math.min(jumpToLine, state.doc.lines));
     const targetLine = state.doc.line(boundedLine);
+    lastJumpTokenRef.current = jumpToken;
+    if (pendingJumpReleaseTimeoutRef.current !== null) {
+      window.clearTimeout(pendingJumpReleaseTimeoutRef.current);
+      pendingJumpReleaseTimeoutRef.current = null;
+    }
+    pendingJumpRef.current = { line: boundedLine, token: jumpToken };
     editorView.dispatch({
       selection: { anchor: targetLine.from },
       scrollIntoView: true,
       effects: EditorView.scrollIntoView(targetLine.from, {
         y: "start",
-        yMargin: 32,
+        yMargin: 0,
       }),
     });
+    const applyFrame = window.requestAnimationFrame(() => {
+      pendingJumpReleaseTimeoutRef.current = window.setTimeout(() => {
+        if (pendingJumpRef.current?.token === jumpToken) {
+          pendingJumpRef.current = null;
+        }
+        pendingJumpReleaseTimeoutRef.current = null;
+      }, 250);
+    });
     onViewportLineChange?.(boundedLine);
+
+    return () => {
+      window.cancelAnimationFrame(applyFrame);
+      if (pendingJumpReleaseTimeoutRef.current !== null) {
+        window.clearTimeout(pendingJumpReleaseTimeoutRef.current);
+        pendingJumpReleaseTimeoutRef.current = null;
+      }
+      if (pendingJumpRef.current?.token === jumpToken) {
+        pendingJumpRef.current = null;
+      }
+    };
   }, [editorView, jumpToLine, jumpToken, onViewportLineChange]);
 
   return (
@@ -268,7 +367,8 @@ export function MarkdownEditor({
       <CodeMirror
         value={content}
         height="100%"
-        extensions={[markdown()]}
+        indentWithTab={true}
+        extensions={markdownExtensions}
         onChange={(value) => onChange(value)}
         onCreateEditor={(editorView) => {
           setEditorView(editorView);

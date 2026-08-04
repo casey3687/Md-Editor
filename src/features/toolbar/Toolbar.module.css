@@ -35,6 +35,11 @@
   opacity: 0.5;
 }
 
+.appearanceButton {
+  margin-left: auto;
+  min-width: 4.75rem;
+}
+
 @media (max-width: 640px) {
   .toolbar {
     top: 0.75rem;
@@ -44,5 +49,9 @@
   .button {
     flex: 1 1 calc(50% - 0.25rem);
     justify-content: center;
+  }
+
+  .appearanceButton {
+    margin-left: 0;
   }
 }

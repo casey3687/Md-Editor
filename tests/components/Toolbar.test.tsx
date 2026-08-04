@@ -34,4 +34,40 @@ describe("Toolbar", () => {
     expect(onSave).not.toHaveBeenCalled();
     expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
   });
+
+  it("shows the current appearance mode on the appearance button", () => {
+    render(
+      <Toolbar
+        disableSave={false}
+        appearanceMode="dark"
+        onNewFile={vi.fn()}
+        onOpenFile={vi.fn()}
+        onOpenFolder={vi.fn()}
+        onSave={vi.fn()}
+        onSaveAs={vi.fn()}
+        onToggleAppearance={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "夜间模式" })).toBeInTheDocument();
+  });
+  it("opens settings from the toolbar", () => {
+    const onOpenSettings = vi.fn();
+
+    render(
+      <Toolbar
+        disableSave={false}
+        onNewFile={vi.fn()}
+        onOpenFile={vi.fn()}
+        onOpenFolder={vi.fn()}
+        onSave={vi.fn()}
+        onSaveAs={vi.fn()}
+        onOpenSettings={onOpenSettings}
+      />,
+    );
+
+    screen.getByRole("button", { name: "Settings" }).click();
+
+    expect(onOpenSettings).toHaveBeenCalledTimes(1);
+  });
 });

@@ -19,7 +19,8 @@ pub fn scan_folder(path: String) -> Result<Vec<MarkdownFileEntry>, String> {
 #[tauri::command]
 pub fn read_markdown_file(path: String) -> Result<String, String> {
     validate_markdown_path(Path::new(&path))?;
-    fs::read_to_string(path).map_err(|error| error.to_string())
+    let bytes = fs::read(path).map_err(|error| error.to_string())?;
+    Ok(String::from_utf8_lossy(&bytes).into_owned())
 }
 
 #[tauri::command]
@@ -249,6 +250,23 @@ mod tests {
             .expect("read markdown file");
 
         assert_eq!(content, "# Hello\n\nWorld");
+
+        fs::remove_dir_all(&root).expect("clean up temp tree");
+    }
+
+    #[test]
+    fn read_markdown_file_replaces_invalid_utf8_in_renamed_binary_files() {
+        let root = unique_temp_dir();
+        let file_path = root.join("renamed-workbook.md");
+
+        fs::create_dir_all(&root).expect("create temp directory");
+        fs::write(&file_path, b"PK\x03\x04\xFFworkbook").expect("write binary markdown file");
+
+        let content =
+            crate::commands::fs::read_markdown_file(file_path.to_string_lossy().into_owned())
+                .expect("renamed binary file should remain editable");
+
+        assert_eq!(content, "PK\u{3}\u{4}\u{FFFD}workbook");
 
         fs::remove_dir_all(&root).expect("clean up temp tree");
     }

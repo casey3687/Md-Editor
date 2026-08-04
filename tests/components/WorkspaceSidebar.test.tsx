@@ -6,6 +6,25 @@ import { WorkspaceSidebar } from "../../src/features/workspace/WorkspaceSidebar"
 import type { OutlineItem, SidebarTab } from "../../src/types/editor";
 
 describe("WorkspaceSidebar", () => {
+  it("does not show the loaded workspace path above the sidebar tabs", () => {
+    const workspacePath = "C:/Users/17956/Desktop/large-course-materials";
+
+    render(
+      <WorkspaceSidebar
+        workspacePath={workspacePath}
+        fileEntries={[]}
+        sidebarTab="files"
+        activePath={null}
+        outline={[]}
+        onSidebarTabChange={vi.fn()}
+        onSelectFile={vi.fn()}
+        onSelectOutline={vi.fn()}
+      />,
+    );
+
+    expect(screen.queryByText(new RegExp(workspacePath.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")))).not.toBeInTheDocument();
+  });
+
   it("renders file cards with relative directory labels and active state", () => {
     render(
       <WorkspaceSidebar
@@ -165,5 +184,49 @@ describe("WorkspaceSidebar", () => {
 
     expect(screen.getByRole("button", { name: "Introduction" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /a\.md/i })).not.toBeInTheDocument();
+  });
+
+  it("collapses to a narrow rail and expands again", () => {
+    function Harness() {
+      const [isCollapsed, setIsCollapsed] = useState(false);
+
+      return (
+        <WorkspaceSidebar
+          workspacePath="docs"
+          fileEntries={[
+            {
+              path: "docs/a.md",
+              relativePath: "a.md",
+              name: "a.md",
+              directoryLabel: ".",
+              excerpt: null,
+              modifiedAt: null,
+            },
+          ]}
+          sidebarTab="files"
+          activePath={null}
+          outline={[]}
+          isCollapsed={isCollapsed}
+          onToggleCollapsed={() => setIsCollapsed((current) => !current)}
+          onSidebarTabChange={vi.fn()}
+          onSelectFile={vi.fn()}
+          onSelectOutline={vi.fn()}
+        />
+      );
+    }
+
+    render(<Harness />);
+
+    fireEvent.click(screen.getByRole("button", { name: "收起侧边栏" }));
+
+    expect(screen.getByRole("complementary", { name: "Workspace navigation" })).toHaveAttribute(
+      "aria-expanded",
+      "false",
+    );
+    expect(screen.queryByRole("tabpanel", { name: "Files" })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "展开侧边栏" }));
+
+    expect(screen.getByRole("tabpanel", { name: "Files" })).toBeInTheDocument();
   });
 });

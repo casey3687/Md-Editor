@@ -1,5 +1,13 @@
 {
   "identifier": "default",
   "windows": ["main"],
-  "permissions": ["core:default", "dialog:allow-open", "dialog:allow-save", "opener:default"]
+  "permissions": [
+    "core:default",
+    "core:window:allow-set-theme",
+    "core:window:allow-set-title",
+    "core:window:allow-show",
+    "dialog:allow-open",
+    "dialog:allow-save",
+    "opener:default"
+  ]
 }

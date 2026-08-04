@@ -1,13 +1,15 @@
 .preview {
+  position: relative;
   min-height: 100%;
   padding: 0.25rem 0;
   color: var(--text-main);
 }
 
 .markdown {
-  max-width: 78ch;
+  width: 100%;
+  max-width: 100%;
   color: inherit;
-  font-size: 1rem;
+  font-size: var(--editor-font-size);
   line-height: 1.78;
   word-break: break-word;
 }
@@ -25,15 +27,15 @@
 }
 
 .markdown :global(h1) {
-  font-size: clamp(2rem, 3vw, 2.75rem);
+  font-size: 2.25em;
 }
 
 .markdown :global(h2) {
-  font-size: clamp(1.6rem, 2.3vw, 2.1rem);
+  font-size: 1.75em;
 }
 
 .markdown :global(h3) {
-  font-size: 1.4rem;
+  font-size: 1.4em;
 }
 
 .markdown :global(p),
@@ -60,21 +62,21 @@
 .markdown :global(blockquote) {
   margin-bottom: 0.7rem;
   padding: 0 0 0 0.9rem;
-  border-left: 5px solid rgba(203, 213, 225, 0.96);
-  color: #64748b;
+  border-left: 5px solid var(--preview-quote-border);
+  color: var(--preview-quote-text);
   background: transparent;
   border-radius: 0;
 }
 
 .markdown :global(blockquote blockquote) {
   margin-top: 0.55rem;
-  border-left-color: rgba(219, 228, 240, 1);
+  border-left-color: var(--preview-quote-nested-border);
 }
 
 .markdown :global(code) {
   border-radius: 0.4rem;
-  background: rgba(241, 245, 249, 0.95);
-  color: #0f172a;
+  background: var(--inline-code-bg);
+  color: var(--inline-code-text);
   padding: 0.14rem 0.35rem;
   font-size: 0.92em;
 }
@@ -84,8 +86,8 @@
   overflow: auto;
   border: 0;
   border-radius: 0;
-  background: #0f172a;
-  color: #e2e8f0;
+  background: var(--code-block-bg);
+  color: var(--code-block-text);
   padding: 0.95rem 1.1rem 1rem;
 }
 
@@ -98,23 +100,63 @@
 
 .codeBlock {
   margin: 0 0 1rem;
-  border: 2px solid rgba(15, 23, 42, 0.32);
+  border: 2px solid var(--code-border);
   border-radius: 0.9rem;
   overflow: hidden;
-  background: #0f172a;
+  background: var(--code-block-bg);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.codeHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  min-height: 2.65rem;
+  margin: 0;
+  border-bottom: 2px solid rgba(148, 163, 184, 0.35);
+  background: var(--code-header-bg);
+  padding: 0.55rem 0.7rem 0.55rem 0.95rem;
 }
 
 .codeLanguage {
   display: block;
-  margin: 0;
-  border-bottom: 2px solid rgba(148, 163, 184, 0.35);
-  background: #111827;
-  color: #cbd5e1;
-  padding: 0.45rem 0.8rem;
-  font-size: 0.72rem;
+  color: var(--code-header-text);
+  font-size: 0.92rem;
+  line-height: 1.25;
   letter-spacing: 0.02em;
   text-transform: uppercase;
+}
+
+.copyCodeButton {
+  border: 1px solid var(--copy-button-border);
+  border-radius: 0.45rem;
+  background: var(--copy-button-bg);
+  color: var(--copy-button-text);
+  padding: 0.32rem 0.66rem;
+  font-size: 0.88rem;
+  line-height: 1.2;
+  cursor: pointer;
+}
+
+.copyCodeButton:hover {
+  border-color: var(--copy-button-hover-border);
+  color: var(--copy-button-hover-text);
+}
+
+.copyToast {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  z-index: 30;
+  border: 1px solid rgba(34, 197, 94, 0.42);
+  border-radius: 0.55rem;
+  background: rgba(22, 101, 52, 0.94);
+  color: #f0fdf4;
+  padding: 0.48rem 0.75rem;
+  font-size: 0.86rem;
+  line-height: 1.2;
+  box-shadow: 0 14px 32px rgba(15, 23, 42, 0.22);
 }
 
 .markdown :global(table) {
@@ -124,23 +166,29 @@
 
 .markdown :global(th),
 .markdown :global(td) {
-  border: 2px solid rgba(148, 163, 184, 0.4);
+  border: 2px solid var(--preview-table-border);
   padding: 0.65rem 0.75rem;
   text-align: left;
 }
 
 .markdown :global(th) {
-  background: rgba(248, 250, 252, 0.95);
+  background: var(--preview-table-header-bg);
 }
 
-.markdown :global(img) {
+.responsiveImage {
+  display: block;
   max-width: 100%;
+  max-height: calc(100vh - 14rem);
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  box-sizing: border-box;
   border-radius: 0.9rem;
 }
 
 .markdown :global(hr) {
   border: 0;
-  border-top: 2px solid rgba(148, 163, 184, 0.42);
+  border-top: 2px solid var(--preview-rule);
   margin: 0.5rem 0;
 }
 

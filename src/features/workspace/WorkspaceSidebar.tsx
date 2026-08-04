@@ -11,6 +11,8 @@ type WorkspaceSidebarProps = {
   activePath: string | null;
   outline: OutlineItem[];
   visibleOutlineIds?: string[];
+  isCollapsed?: boolean;
+  onToggleCollapsed?: () => void;
   onSidebarTabChange: (tab: SidebarTab) => void;
   onSelectFile: (path: string) => void;
   onSelectOutline: (id: string) => void;
@@ -23,6 +25,8 @@ export function WorkspaceSidebar({
   activePath,
   outline,
   visibleOutlineIds = [],
+  isCollapsed = false,
+  onToggleCollapsed,
   onSidebarTabChange,
   onSelectFile,
   onSelectOutline,
@@ -67,9 +71,28 @@ export function WorkspaceSidebar({
   };
 
   return (
-    <aside aria-label="Workspace navigation" className={styles.sidebar}>
-      <p className={styles.workspaceLabel}>{workspacePath ? `已加载工作区：${workspacePath}` : "工作区就绪"}</p>
-      <div role="tablist" aria-label="Sidebar tabs" className={styles.tabList}>
+    <aside
+      aria-label="Workspace navigation"
+      aria-expanded={!isCollapsed}
+      className={`${styles.sidebar} ${isCollapsed ? styles.sidebarCollapsed : ""}`}
+    >
+      {isCollapsed ? (
+        onToggleCollapsed ? (
+          <button
+            type="button"
+            aria-label="展开侧边栏"
+            aria-expanded={!isCollapsed}
+            className={styles.collapseButton}
+            onClick={onToggleCollapsed}
+          >
+            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M8 5 L13 10 L8 15" />
+            </svg>
+          </button>
+        ) : null
+      ) : (
+        <>
+          <div role="tablist" aria-label="Sidebar tabs" className={styles.tabList}>
         <button
           type="button"
           aria-label="Files"
@@ -100,23 +123,38 @@ export function WorkspaceSidebar({
         >
           大纲
         </button>
-      </div>
-      {sidebarTab === "files" ? (
-        <FileListPanel
-          id={filesPanelId}
-          labelledBy={filesTabId}
-          fileEntries={fileEntries}
-          activePath={activePath}
-          onSelectFile={onSelectFile}
-        />
-      ) : (
-        <OutlinePanel
-          id={outlinePanelId}
-          labelledBy={outlineTabId}
-          outline={outline}
-          visibleOutlineIds={visibleOutlineIds}
-          onSelectOutline={onSelectOutline}
-        />
+            {onToggleCollapsed ? (
+              <button
+                type="button"
+                aria-label="收起侧边栏"
+                aria-expanded={!isCollapsed}
+                className={styles.collapseButton}
+                onClick={onToggleCollapsed}
+              >
+                <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 5 L7 10 L12 15" />
+                </svg>
+              </button>
+            ) : null}
+          </div>
+          {sidebarTab === "files" ? (
+            <FileListPanel
+              id={filesPanelId}
+              labelledBy={filesTabId}
+              fileEntries={fileEntries}
+              activePath={activePath}
+              onSelectFile={onSelectFile}
+            />
+          ) : (
+            <OutlinePanel
+              id={outlinePanelId}
+              labelledBy={outlineTabId}
+              outline={outline}
+              visibleOutlineIds={visibleOutlineIds}
+              onSelectOutline={onSelectOutline}
+            />
+          )}
+        </>
       )}
     </aside>
   );

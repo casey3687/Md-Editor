@@ -2,8 +2,6 @@
 
 桌面端 Markdown 编辑器（Tauri 2 + React 19 + TypeScript），专注本地 `.md` 文件的打开、编辑、预览和保存。
 
-  
-
 ## 项目定位
 
 -   无后端、纯本地运行
@@ -11,9 +9,8 @@
 -   桌面应用壳使用 Tauri 2  
 
 ## 直接使用
--   下载 .\src-tauri\target\release\md-editor.exe 文件或者release中的文件直接使用
 
-##   
+- 下载 `src-tauri\target\release\md-editor.exe`，或从 Release 下载对应安装包。
 
 ## 技术栈
 
